@@ -1,0 +1,155 @@
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Order, OrderDocument } from './schemas/order.schema';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { Customer, CustomerDocument } from '../customers/schemas/customer.schema';
+import { Product, ProductDocument } from '../products/schemas/product.schema';
+import { MailerService } from '@nestjs-modules/mailer';
+import * as bcrypt from 'bcrypt';
+
+@Injectable()
+export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
+  constructor(
+    @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
+    @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
+    @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    private readonly mailerService: MailerService,
+  ) {}
+
+  async create(createOrderDto: CreateOrderDto): Promise<Order> {
+    // 1. Kiểm tra / Lưu khách hàng
+    let customer = await this.customerModel.findById(createOrderDto.customer_phone).exec();
+    if (!customer) {
+      customer = new this.customerModel({
+        _id: createOrderDto.customer_phone,
+        name: createOrderDto.customer_name,
+        email: '',
+        phone: createOrderDto.customer_phone,
+        password: '12345',
+        role: 'customer',
+        isActive: true,
+        owned_vehicles: []
+      });
+      await customer.save();
+    }
+
+    // 2. Tạo đơn hàng
+    const newOrder = new this.orderModel(createOrderDto);
+    newOrder.status = 'Chờ duyệt';
+    const savedOrder = await newOrder.save();
+
+    // 3. Tự động gửi Email thông báo (Bất đồng bộ)
+    this.sendOrderNotificationEmail(createOrderDto, savedOrder._id.toString())
+      .then(() => {
+        this.logger.log(`Gửi email thành công cho đơn hàng ${savedOrder._id}`);
+      })
+      .catch((err) => {
+        this.logger.error(`Không thể gửi email cho đơn hàng ${savedOrder._id}:`, err);
+      });
+
+    console.log(`[Hệ thống] Đã tạo đơn hàng mới (${savedOrder._id}) và kích hoạt luồng gửi Email cho Admin!`);
+
+    return savedOrder;
+  }
+
+  async updateStatus(id: string, status: string): Promise<Order> {
+    const order = await this.orderModel.findById(id).exec();
+    if (!order) {
+      throw new NotFoundException('Đơn hàng không tồn tại');
+    }
+
+    const previousStatus = order.status;
+    const triggerDeductionStatuses = ['Đã duyệt', 'Hoàn thành', 'Đang giao'];
+    
+    // Nếu chuyển từ Chờ duyệt sang trạng thái cần trừ kho (tránh trừ 2 lần)
+    if (previousStatus === 'Chờ duyệt' && triggerDeductionStatuses.includes(status)) {
+      for (const item of order.items) {
+        // Trừ kho an toàn bằng toán tử $inc và điều kiện $gte
+        const updatedProduct = await this.productModel.findOneAndUpdate(
+          { _id: item.product_id, stock_quantity: { $gte: item.quantity } },
+          { $inc: { stock_quantity: -item.quantity } },
+          { new: true }
+        ).exec();
+
+        if (!updatedProduct) {
+          throw new BadRequestException(`Sản phẩm [${item.title}] (OEM: ${item.oem_code}) không đủ tồn kho để duyệt đơn.`);
+        }
+
+        // Tự động set in_stock = false nếu hết hàng
+        if (updatedProduct.stock_quantity === 0) {
+          await this.productModel.updateOne(
+            { _id: updatedProduct._id },
+            { $set: { in_stock: false } }
+          ).exec();
+        }
+      }
+    }
+
+    order.status = status;
+    return order.save();
+  }
+
+  async findAll(): Promise<Order[]> {
+    return this.orderModel.find().sort({ createdAt: -1 }).exec();
+  }
+
+  async findMyHistory(phone: string): Promise<Order[]> {
+    return this.orderModel.find({ customer_phone: phone }).sort({ createdAt: -1 }).exec();
+  }
+
+  private async sendOrderNotificationEmail(orderDto: CreateOrderDto, orderId: string) {
+    const itemsHtml = orderDto.items.map(item => `
+      <tr>
+        <td style="padding: 8px; border: 1px solid #ddd;">${item.title}</td>
+        <td style="padding: 8px; border: 1px solid #ddd;">${item.oem_code}</td>
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${item.quantity}</td>
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${item.price_at_purchase.toLocaleString('vi-VN')} đ</td>
+      </tr>
+    `).join('');
+
+    const htmlContent = `
+      <h2>Thông Báo Đơn Hàng Mới Từ Hệ Thống Mazlay Parts</h2>
+      <p>Mã Đơn Hàng: <strong>${orderId}</strong></p>
+      
+      <h3>1. Thông tin Khách hàng</h3>
+      <ul>
+        <li><strong>Họ tên:</strong> ${orderDto.customer_name}</li>
+        <li><strong>Số điện thoại:</strong> ${orderDto.customer_phone}</li>
+        <li><strong>Địa chỉ:</strong> ${orderDto.shipping_address}</li>
+        <li><strong>Số khung (VIN):</strong> ${orderDto.vin_number}</li>
+        <li><strong>Phương thức TT:</strong> ${orderDto.payment_method}</li>
+      </ul>
+
+      <h3>2. Chi tiết Phụ tùng</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background-color: #f2f2f2;">
+            <th style="padding: 8px; border: 1px solid #ddd;">Tên phụ tùng</th>
+            <th style="padding: 8px; border: 1px solid #ddd;">Mã OEM</th>
+            <th style="padding: 8px; border: 1px solid #ddd;">Số lượng</th>
+            <th style="padding: 8px; border: 1px solid #ddd;">Đơn giá</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" style="padding: 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">TỔNG CỘNG:</td>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #FF2F2F;">${orderDto.total_amount.toLocaleString('vi-VN')} đ</td>
+          </tr>
+        </tfoot>
+      </table>
+      <p><br>Vui lòng đăng nhập trang Admin để duyệt đơn hàng này.</p>
+    `;
+
+    await this.mailerService.sendMail({
+      to: 'minhtg2003@gmail.com',
+      subject: `[Mazlay Parts] Thông Báo Đơn Hàng Mới Từ Khách Hàng - Mã Đơn: ${orderId}`,
+      html: htmlContent,
+    });
+  }
+}

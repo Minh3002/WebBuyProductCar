@@ -1,0 +1,298 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import Header from './components/layout/Header';
+import Sidebar from './components/layout/Sidebar';
+import FilterBox from './components/dashboard/FilterBox';
+import ProductCard from './components/dashboard/ProductCard';
+import ProductView from './components/product/ProductView';
+import CheckoutView from './components/checkout/CheckoutView';
+import AuthModal from './components/auth/AuthModal';
+import PurchaseHistory from './components/history/PurchaseHistory';
+import axiosClient from './api/axiosClient';
+
+// Helper for Fuzzy Search
+const normalizeString = (str) => {
+  if (!str) return '';
+  return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '');
+};
+
+export default function App() {
+  const [currentView, setCurrentView] = useState('home'); // 'home', 'detail', 'checkout'
+  const [activeProductId, setActiveProductId] = useState(null);
+  
+  const [cartItems, setCartItems] = useState([]);
+  
+  const [filters, setFilters] = useState({ year: '', make: '', model: '', engine: '' });
+  const [selectedCategory, setSelectedCategory] = useState('Tất cả');
+  const [searchKeyword, setSearchKeyword] = useState('');
+
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [user, setUser] = useState(null);
+
+  const [allProducts, setAllProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Khôi phục user từ LocalStorage khi load web
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error('Lỗi phân tích user từ localstorage');
+      }
+    }
+  }, []);
+
+  // 1. Fetch TẤT CẢ sản phẩm 1 lần khi load app để làm data cho bộ lọc
+  useEffect(() => {
+    const fetchAllProducts = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await axiosClient.get('/products');
+        setAllProducts(Array.isArray(response) ? response : (response.data || []));
+      } catch (err) {
+        setError('Lỗi khi tải dữ liệu sản phẩm. Vui lòng thử lại sau.');
+        console.error("Fetch products error:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAllProducts();
+  }, []);
+
+  // 2. Gom tuỳ chọn động cho FilterBox (dựa vào danh sách allProducts và filters hiện tại)
+  const filterOptions = useMemo(() => {
+    if (!allProducts || allProducts.length === 0) return { years: [], makes: [], models: [], engines: [] };
+
+    const getCompatibilities = (product) => {
+      return Array.isArray(product.compatibility) ? product.compatibility : [];
+    };
+
+    // Năm (Lấy tất cả năm có trong data)
+    const years = [...new Set(allProducts.flatMap(p => getCompatibilities(p).map(c => c.year)))].filter(Boolean).sort();
+    
+    // Hãng (Lọc theo Năm nếu có chọn)
+    const makes = [...new Set(allProducts.flatMap(p => 
+      getCompatibilities(p).filter(c => !filters.year || c.year === filters.year).map(c => c.make)
+    ))].filter(Boolean).sort();
+
+    // Model (Lọc theo Năm và Hãng)
+    const models = [...new Set(allProducts.flatMap(p => 
+      getCompatibilities(p).filter(c => 
+        (!filters.year || c.year === filters.year) &&
+        (!filters.make || c.make === filters.make)
+      ).map(c => c.model)
+    ))].filter(Boolean).sort();
+
+    // Động cơ (Lọc theo Năm, Hãng, Model)
+    const engines = [...new Set(allProducts.flatMap(p => 
+      getCompatibilities(p).filter(c => 
+        (!filters.year || c.year === filters.year) &&
+        (!filters.make || c.make === filters.make) &&
+        (!filters.model || c.model === filters.model)
+      ).map(c => c.engine)
+    ))].filter(Boolean).sort();
+
+    return { years, makes, models, engines };
+  }, [allProducts, filters]);
+
+  // 3. Lọc danh sách sản phẩm (Theo 4 tầng dropdown + Category + Fuzzy Search)
+  const displayedProducts = useMemo(() => {
+    let result = allProducts;
+
+    // Lọc theo Category
+    if (selectedCategory && selectedCategory !== 'Tất cả') {
+      result = result.filter(p => p.category === selectedCategory);
+    }
+
+    // Lọc theo 4 tầng Dropdown (Quét mảng compatibility)
+    if (filters.year || filters.make || filters.model || filters.engine) {
+      result = result.filter(product => {
+        const compats = Array.isArray(product.compatibility) ? product.compatibility : [];
+        return compats.some(c => 
+          (!filters.year || c.year === filters.year) &&
+          (!filters.make || c.make === filters.make) &&
+          (!filters.model || c.model === filters.model) &&
+          (!filters.engine || c.engine === filters.engine)
+        );
+      });
+    }
+
+    // Lọc Fuzzy Search
+    if (searchKeyword) {
+      const keyword = normalizeString(searchKeyword);
+      result = result.filter(product => {
+        const titleMatches = normalizeString(product.title).includes(keyword);
+        const oemMatches = normalizeString(product.oem_code || product.oem).includes(keyword);
+        const brandMatches = normalizeString(product.brand).includes(keyword);
+        
+        // Quét tìm trong mảng compatibility (tìm theo model hoặc make)
+        const compats = Array.isArray(product.compatibility) ? product.compatibility : [];
+        const compatMatches = compats.some(c => 
+          normalizeString(c.model).includes(keyword) || 
+          normalizeString(c.make).includes(keyword)
+        );
+
+        return titleMatches || oemMatches || brandMatches || compatMatches;
+      });
+    }
+
+    return result;
+  }, [allProducts, filters, selectedCategory, searchKeyword]);
+
+  const handleResetFilters = () => setFilters({ year: '', make: '', model: '', engine: '' });
+
+  const navigateTo = (view, productId = null) => {
+    setCurrentView(view);
+    if (productId) setActiveProductId(productId);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleQuickBuy = (product) => {
+    setCartItems(prev => {
+      const existing = prev.find(item => item._id === product._id || item.id === product.id);
+      if (existing) {
+        return prev.map(item => (item._id === product._id || item.id === product.id) ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+    alert(`Đã thêm ${product.title} vào giỏ hàng!`);
+  };
+
+  const handleLoginSuccess = (loggedInUser) => {
+    setUser(loggedInUser);
+    if (loggedInUser.role === 'admin') {
+      navigateTo('admin');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    navigateTo('home');
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FA] text-[#222222] font-sans pb-12">
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+        onLoginSuccess={handleLoginSuccess}
+      />
+      <Header 
+        navigateTo={navigateTo} 
+        cartCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)} 
+        searchKeyword={searchKeyword}
+        onSearchChange={setSearchKeyword}
+        user={user}
+        onLoginClick={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}
+      />
+      
+      <main className="max-w-[1200px] mx-auto px-4 py-8">
+        {currentView === 'home' && (
+          <>
+            <FilterBox 
+              filters={filters} 
+              setFilters={setFilters} 
+              onReset={handleResetFilters} 
+              filterOptions={filterOptions}
+            />
+            <div className="flex flex-col md:flex-row gap-8">
+              <Sidebar selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} />
+              
+              <section className="w-full md:w-3/4">
+                <div className="mb-4">
+                  <h3 className="text-base font-bold uppercase tracking-tight text-[#111111]">
+                    Sản phẩm phù hợp ({displayedProducts.length})
+                  </h3>
+                </div>
+
+                {isLoading ? (
+                  <div className="bg-white p-12 text-center rounded-lg border border-[#E5E5E5] shadow-sm flex flex-col items-center justify-center">
+                    <div className="w-8 h-8 border-4 border-[#FF2F2F] border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-[#777777] font-medium text-sm">Đang tải dữ liệu phụ tùng...</p>
+                  </div>
+                ) : error ? (
+                  <div className="bg-white p-12 text-center rounded-lg border border-red-300 shadow-sm">
+                    <p className="text-red-500 font-medium text-sm">{error}</p>
+                  </div>
+                ) : displayedProducts.length === 0 ? (
+                  <div className="bg-white p-12 text-center rounded-lg border border-[#E5E5E5] shadow-sm">
+                    <p className="text-[#111111] font-bold text-lg mb-2">
+                      Không tìm thấy phụ tùng phù hợp với xe của bạn.
+                    </p>
+                    <p className="text-[#777777] font-medium text-sm mb-6">
+                      Vui lòng liên hệ Kỹ thuật viên qua Zalo để tra cứu trực tiếp!
+                    </p>
+                    <a 
+                      href="https://zalo.me" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-[#0068FF] hover:bg-blue-700 text-white font-bold rounded-lg transition-colors shadow-sm"
+                    >
+                      💬 Chat Zalo Kỹ Thuật Viên
+                    </a>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    {displayedProducts.map(product => (
+                      <ProductCard 
+                        key={product._id || product.id} 
+                        product={product} 
+                        onSelect={(id) => navigateTo('detail', id)}
+                        onQuickBuy={handleQuickBuy}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+          </>
+        )}
+
+        {currentView === 'detail' && (
+          <ProductView 
+            productId={activeProductId} 
+            onBack={() => navigateTo('home')}
+            onAddToCart={(product) => { handleQuickBuy(product); navigateTo('checkout'); }}
+          />
+        )}
+
+        {currentView === 'checkout' && (
+          <CheckoutView 
+            cartItems={cartItems}
+            setCartItems={setCartItems}
+            onBack={() => navigateTo('home')}
+            user={user}
+            onOrderSuccess={() => {
+              setCartItems([]);
+              navigateTo('home');
+            }}
+          />
+        )}
+
+        {currentView === 'admin' && (
+          <div className="bg-white p-12 text-center rounded-lg border border-[#E5E5E5] shadow-sm max-w-4xl mx-auto mt-10">
+            <h2 className="text-3xl font-black text-brand-dark mb-4 uppercase tracking-wider">Hệ Thống Quản Trị Mazlay Parts</h2>
+            <p className="text-neutral-500 mb-8">Tính năng quản trị đơn hàng đang được cập nhật trong phiên bản tiếp theo.</p>
+            <button onClick={() => navigateTo('home')} className="px-6 py-2 bg-brand-primary text-white font-bold rounded-lg hover:bg-brand-dark transition-colors">
+              Quay lại Trang Chủ
+            </button>
+          </div>
+        )}
+
+        {currentView === 'history' && (
+          <PurchaseHistory 
+            user={user} 
+            onBack={() => navigateTo('home')} 
+            handleLogout={handleLogout} 
+          />
+        )}
+      </main>
+    </div>
+  );
+}
