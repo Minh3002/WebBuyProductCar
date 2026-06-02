@@ -1,6 +1,6 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger, OnModuleInit, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Order, OrderDocument } from './schemas/order.schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Customer, CustomerDocument } from '../customers/schemas/customer.schema';
@@ -18,6 +18,52 @@ export class OrdersService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     private readonly mailerService: MailerService,
   ) {}
+
+  async onModuleInit() {
+    const count = await this.orderModel.countDocuments({ status: 'Hoàn thành' }).exec();
+    if (count === 0) {
+      this.logger.log('Đang khởi tạo dữ liệu mẫu (Seed) cho trang Thống kê...');
+      const products = await this.productModel.find().limit(3).exec();
+      if (products.length > 0) {
+        const dummyOrders = [
+          {
+            customer_phone: '0988888888',
+            customer_name: 'Khách hàng Mẫu 1',
+            shipping_address: 'Hà Nội',
+            vin_number: 'ABCDEF12345678901',
+            payment_method: 'COD',
+            total_amount: products[0].price * 5,
+            status: 'Hoàn thành',
+            items: [{
+              product_id: products[0]._id.toString(),
+              title: products[0].title,
+              oem_code: products[0].oem_code,
+              price_at_purchase: products[0].price,
+              quantity: 5
+            }]
+          },
+          {
+            customer_phone: '0999999999',
+            customer_name: 'Khách hàng Mẫu 2',
+            shipping_address: 'TP HCM',
+            vin_number: '1234567890ABCDEF1',
+            payment_method: 'TRANSFER',
+            total_amount: (products[1]?.price || 100) * 3,
+            status: 'Hoàn thành',
+            items: [{
+              product_id: products[1]?._id.toString() || '60c72b2f9b1e8a001c8e4b3b',
+              title: products[1]?.title || 'Sản phẩm ảo',
+              oem_code: products[1]?.oem_code || 'OEM-123',
+              price_at_purchase: products[1]?.price || 100,
+              quantity: 3
+            }]
+          }
+        ];
+        await this.orderModel.insertMany(dummyOrders);
+        this.logger.log('Đã tạo xong dữ liệu mẫu đơn hàng!');
+      }
+    }
+  }
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
     // 1. Kiểm tra / Lưu khách hàng
@@ -56,40 +102,48 @@ export class OrdersService {
   }
 
   async updateStatus(id: string, status: string): Promise<Order> {
-    const order = await this.orderModel.findById(id).exec();
-    if (!order) {
-      throw new NotFoundException('Đơn hàng không tồn tại');
-    }
+    try {
+      const order = await this.orderModel.findById(id).exec();
+      if (!order) {
+        throw new NotFoundException('Đơn hàng không tồn tại');
+      }
 
-    const previousStatus = order.status;
-    const triggerDeductionStatuses = ['Đã duyệt', 'Hoàn thành', 'Đang giao'];
-    
-    // Nếu chuyển từ Chờ duyệt sang trạng thái cần trừ kho (tránh trừ 2 lần)
-    if (previousStatus === 'Chờ duyệt' && triggerDeductionStatuses.includes(status)) {
-      for (const item of order.items) {
-        // Trừ kho an toàn bằng toán tử $inc và điều kiện $gte
-        const updatedProduct = await this.productModel.findOneAndUpdate(
-          { _id: item.product_id, stock_quantity: { $gte: item.quantity } },
-          { $inc: { stock_quantity: -item.quantity } },
-          { new: true }
-        ).exec();
-
-        if (!updatedProduct) {
-          throw new BadRequestException(`Sản phẩm [${item.title}] (OEM: ${item.oem_code}) không đủ tồn kho để duyệt đơn.`);
-        }
-
-        // Tự động set in_stock = false nếu hết hàng
-        if (updatedProduct.stock_quantity === 0) {
-          await this.productModel.updateOne(
-            { _id: updatedProduct._id },
-            { $set: { in_stock: false } }
+      const previousStatus = order.status;
+      const triggerDeductionStatuses = ['Đã duyệt', 'Hoàn thành', 'Đang giao'];
+      
+      // Nếu chuyển từ Chờ duyệt sang trạng thái cần trừ kho (tránh trừ 2 lần)
+      if (previousStatus === 'Chờ duyệt' && triggerDeductionStatuses.includes(status)) {
+        for (const item of order.items) {
+          // Trừ kho an toàn bằng toán tử $inc và điều kiện $gte
+          const updatedProduct = await this.productModel.findOneAndUpdate(
+            { _id: new Types.ObjectId(item.product_id), stock_quantity: { $gte: item.quantity } },
+            { $inc: { stock_quantity: -item.quantity } },
+            { new: true }
           ).exec();
+
+          if (!updatedProduct) {
+            throw new BadRequestException(`Sản phẩm [${item.title}] (OEM: ${item.oem_code}) không đủ tồn kho để duyệt đơn.`);
+          }
+
+          // Tự động set in_stock = false nếu hết hàng
+          if (updatedProduct.stock_quantity === 0) {
+            await this.productModel.updateOne(
+              { _id: updatedProduct._id },
+              { $set: { in_stock: false } }
+            ).exec();
+          }
         }
       }
-    }
 
-    order.status = status;
-    return order.save();
+      order.status = status;
+      return await order.save();
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error('Lỗi khi duyệt đơn hàng:', error);
+      throw new InternalServerErrorException('Có lỗi hệ thống xảy ra khi duyệt đơn');
+    }
   }
 
   async findAll(): Promise<Order[]> {
@@ -98,6 +152,24 @@ export class OrdersService {
 
   async findMyHistory(phone: string): Promise<Order[]> {
     return this.orderModel.find({ customer_phone: phone }).sort({ createdAt: -1 }).exec();
+  }
+
+  async getTopProducts() {
+    return this.orderModel.aggregate([
+      { $match: { status: { $in: ['Đã duyệt', 'Đang giao', 'Hoàn thành'] } } },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: '$items.product_id',
+          title: { $first: '$items.title' },
+          oem_code: { $first: '$items.oem_code' },
+          total_quantity: { $sum: '$items.quantity' },
+          total_revenue: { $sum: { $multiply: ['$items.quantity', '$items.price_at_purchase'] } }
+        }
+      },
+      { $sort: { total_quantity: -1 } },
+      { $limit: 10 }
+    ]).exec();
   }
 
   private async sendOrderNotificationEmail(orderDto: CreateOrderDto, orderId: string) {

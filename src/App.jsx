@@ -7,6 +7,8 @@ import ProductView from './components/product/ProductView';
 import CheckoutView from './components/checkout/CheckoutView';
 import AuthModal from './components/auth/AuthModal';
 import PurchaseHistory from './components/history/PurchaseHistory';
+import AdminDashboard from './components/admin/AdminDashboard';
+import AiChatWidget from './components/chat/AiChatWidget';
 import axiosClient from './api/axiosClient';
 
 // Helper for Fuzzy Search
@@ -24,6 +26,7 @@ export default function App() {
   const [filters, setFilters] = useState({ year: '', make: '', model: '', engine: '' });
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [sortOrder, setSortOrder] = useState('default');
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -37,7 +40,11 @@ export default function App() {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        if (parsedUser.role === 'admin') {
+          setCurrentView('admin');
+        }
       } catch (e) {
         console.error('Lỗi phân tích user từ localstorage');
       }
@@ -139,8 +146,15 @@ export default function App() {
       });
     }
 
+    // Sắp xếp
+    if (sortOrder === 'asc') {
+      result = [...result].sort((a, b) => a.price - b.price);
+    } else if (sortOrder === 'desc') {
+      result = [...result].sort((a, b) => b.price - a.price);
+    }
+
     return result;
-  }, [allProducts, filters, selectedCategory, searchKeyword]);
+  }, [allProducts, filters, selectedCategory, searchKeyword, sortOrder]);
 
   const handleResetFilters = () => setFilters({ year: '', make: '', model: '', engine: '' });
 
@@ -200,6 +214,8 @@ export default function App() {
               setFilters={setFilters} 
               onReset={handleResetFilters} 
               filterOptions={filterOptions}
+              sortOrder={sortOrder}
+              setSortOrder={setSortOrder}
             />
             <div className="flex flex-col md:flex-row gap-8">
               <Sidebar selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} />
@@ -276,13 +292,11 @@ export default function App() {
         )}
 
         {currentView === 'admin' && (
-          <div className="bg-white p-12 text-center rounded-lg border border-[#E5E5E5] shadow-sm max-w-4xl mx-auto mt-10">
-            <h2 className="text-3xl font-black text-brand-dark mb-4 uppercase tracking-wider">Hệ Thống Quản Trị Mazlay Parts</h2>
-            <p className="text-neutral-500 mb-8">Tính năng quản trị đơn hàng đang được cập nhật trong phiên bản tiếp theo.</p>
-            <button onClick={() => navigateTo('home')} className="px-6 py-2 bg-brand-primary text-white font-bold rounded-lg hover:bg-brand-dark transition-colors">
-              Quay lại Trang Chủ
-            </button>
-          </div>
+          <AdminDashboard 
+            user={user} 
+            onBack={() => navigateTo('home')} 
+            handleLogout={handleLogout}
+          />
         )}
 
         {currentView === 'history' && (
@@ -293,6 +307,8 @@ export default function App() {
           />
         )}
       </main>
+      
+      <AiChatWidget />
     </div>
   );
 }

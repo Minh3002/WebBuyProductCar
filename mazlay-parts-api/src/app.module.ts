@@ -8,6 +8,8 @@ import { ProductsModule } from './products/products.module';
 import { CustomersModule } from './customers/customers.module';
 import { OrdersModule } from './orders/orders.module';
 import { AuthModule } from './auth/auth.module';
+import { CouponsModule } from './coupons/coupons.module';
+import { AiChatModule } from './ai-chat/ai-chat.module';
 
 @Module({
   imports: [
@@ -21,24 +23,30 @@ import { AuthModule } from './auth/auth.module';
       }),
       inject: [ConfigService],
     }),
-    MailerModule.forRoot({
-      transport: {
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        auth: {
-          user: 'nhatduong7975@gmail.com',
-          pass: 'gezeoyeltqpmlobc',
+    MailerModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        transport: {
+          host: 'smtp.gmail.com',
+          port: 465,
+          secure: true,
+          auth: {
+            user: configService.get<string>('SMTP_USER') || 'nhatduong7975@gmail.com',
+            pass: configService.get<string>('SMTP_PASS') || 'gezeoyeltqpmlobc',
+          },
         },
-      },
-      defaults: {
-        from: '"Mazlay Parts Hệ Thống" <no-reply@mazlayparts.com>',
-      },
+        defaults: {
+          from: '"Mazlay Parts Hệ Thống" <no-reply@mazlayparts.com>',
+        },
+      }),
+      inject: [ConfigService],
     }),
     ProductsModule,
     CustomersModule,
     OrdersModule,
     AuthModule,
+    CouponsModule,
+    AiChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],

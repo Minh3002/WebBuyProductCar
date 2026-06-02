@@ -7,7 +7,7 @@ export default function Header({ navigateTo, cartCount, searchKeyword, onSearchC
       <header className="bg-brand-dark text-white sticky top-0 z-50 shadow-md">
         <div className="max-w-[1200px] mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div 
-            onClick={() => navigateTo('home')}
+            onClick={() => navigateTo(user?.role === 'admin' ? 'admin' : 'home')}
             className="text-2xl font-bold tracking-wider text-brand-primary cursor-pointer select-none flex-shrink-0"
           >
             MAZLAY <span className="text-white text-base font-light">PARTS</span>

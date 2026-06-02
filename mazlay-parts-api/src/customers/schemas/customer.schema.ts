@@ -8,8 +8,14 @@ export class Customer {
   @Prop({ type: String, required: true })
   _id: string; // Số điện thoại làm khóa chính
 
-  @Prop({ required: true })
+  @Prop()
   name: string;
+
+  @Prop()
+  full_name: string;
+
+  @Prop()
+  address: string;
 
   @Prop({ default: '' })
   email: string;

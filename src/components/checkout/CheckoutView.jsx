@@ -13,6 +13,11 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
     paymentMethod: 'cod'
   });
 
+  const [couponCode, setCouponCode] = useState('');
+  const [discountValue, setDiscountValue] = useState(0);
+  const [couponMessage, setCouponMessage] = useState('');
+  const [isCouponApplying, setIsCouponApplying] = useState(false);
+
   // Tự động cập nhật nếu user thay đổi (đăng nhập sau khi vào giỏ hàng)
   useEffect(() => {
     if (user) {
@@ -59,6 +64,28 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
     }));
   };
 
+  const handleApplyCoupon = async () => {
+    if (!couponCode) return;
+    setIsCouponApplying(true);
+    setCouponMessage('');
+    try {
+      const res = await axiosClient.post('/coupons/validate', { code: couponCode });
+      setDiscountValue(res.discount_value);
+      setCouponMessage('Áp dụng mã thành công!');
+    } catch (err) {
+      setDiscountValue(0);
+      setCouponMessage(err.response?.data?.message || 'Mã giảm giá không hợp lệ');
+    } finally {
+      setIsCouponApplying(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponCode('');
+    setDiscountValue(0);
+    setCouponMessage('');
+  };
+
   const removeItem = (id) => {
     setCartItems(prev => prev.filter(item => item.id !== id));
   };
@@ -82,7 +109,7 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
         shipping_address: formData.address,
         vin_number: formData.vin,
         payment_method: formData.paymentMethod === 'cod' ? 'COD' : 'TRANSFER',
-        total_amount: totalAmount,
+        total_amount: totalAmount - discountValue,
         items: cartItems.map(item => ({
           product_id: item._id || item.id,
           title: item.title,
@@ -153,9 +180,19 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
         </div>
 
         <div className="border-t mt-6 pt-4">
-          <div className="flex justify-between text-lg font-bold">
+          <div className="flex justify-between text-lg font-bold mb-2">
+            <span>Tạm tính:</span>
+            <span>{totalAmount.toLocaleString('vi-VN')} đ</span>
+          </div>
+          {discountValue > 0 && (
+            <div className="flex justify-between text-lg font-bold text-green-600 mb-2">
+              <span>Giảm giá:</span>
+              <span>- {discountValue.toLocaleString('vi-VN')} đ</span>
+            </div>
+          )}
+          <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
             <span>Tổng cộng:</span>
-            <span className="text-brand-primary text-2xl">{totalAmount.toLocaleString('vi-VN')} đ</span>
+            <span className="text-brand-primary text-2xl">{(totalAmount - discountValue).toLocaleString('vi-VN')} đ</span>
           </div>
         </div>
       </div>
@@ -212,14 +249,45 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
             </div>
 
             {formData.paymentMethod === 'transfer' && (
-              <div className="mt-4 p-4 bg-neutral-50 border rounded-lg flex flex-col items-center text-center animate-pulse">
-                <div className="w-32 h-32 bg-white border-2 border-dashed border-gray-300 flex items-center justify-center mb-3 rounded-lg shadow-sm">
-                  <span className="text-gray-400 font-bold text-xs">[MÃ QR GIẢ LẬP]</span>
-                </div>
-                <p className="font-bold text-brand-dark">Ngân hàng Techcombank</p>
-                <p className="font-mono text-lg font-bold text-brand-primary tracking-widest mt-1">101xxxxxx</p>
-                <p className="text-sm">Chủ TK: MAZLAY PARTS</p>
+              <div className="mt-4 p-4 bg-neutral-50 border rounded-lg flex flex-col items-center text-center">
+                <img 
+                  src={`https://img.vietqr.io/image/VPBank-286957358-compact.png?amount=${totalAmount - discountValue}&addInfo=Thanh%20toan%20don%20hang%20SĐT%20${formData.phone}&accountName=NGUYEN%20TIEN%20MINH`}
+                  alt="QR Code Thanh Toán"
+                  className="w-48 h-48 mb-3 rounded-lg shadow-sm"
+                />
+                <p className="font-bold text-brand-dark">Ngân hàng VPBank</p>
+                <p className="font-mono text-lg font-bold text-brand-primary tracking-widest mt-1">286957358</p>
+                <p className="text-sm">Chủ TK: NGUYỄN TIẾN MINH</p>
+                <p className="text-xs text-gray-500 mt-2">Quét mã QR để thanh toán chính xác số tiền</p>
               </div>
+            )}
+          </div>
+
+          <div className="pt-4 border-t">
+            <h3 className="font-bold mb-3">Mã giảm giá</h3>
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                value={couponCode} 
+                onChange={(e) => setCouponCode(e.target.value.toUpperCase())} 
+                disabled={discountValue > 0}
+                placeholder="Nhập mã giảm giá..." 
+                className="flex-grow p-2.5 border rounded focus:border-brand-primary outline-none uppercase" 
+              />
+              {discountValue > 0 ? (
+                <button type="button" onClick={handleRemoveCoupon} className="px-4 py-2 bg-neutral-200 text-neutral-700 font-bold rounded hover:bg-neutral-300">
+                  Hủy mã
+                </button>
+              ) : (
+                <button type="button" onClick={handleApplyCoupon} disabled={!couponCode || isCouponApplying} className="px-4 py-2 bg-brand-dark text-white font-bold rounded hover:bg-black disabled:bg-neutral-400">
+                  {isCouponApplying ? 'Đang kiểm tra...' : 'Áp dụng'}
+                </button>
+              )}
+            </div>
+            {couponMessage && (
+              <p className={`text-xs mt-2 font-semibold ${discountValue > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                {couponMessage}
+              </p>
             )}
           </div>
 

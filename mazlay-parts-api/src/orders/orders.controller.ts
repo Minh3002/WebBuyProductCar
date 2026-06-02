@@ -13,6 +13,12 @@ export class OrdersController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Get('analytics/top-products')
+  getTopProducts() {
+    return this.ordersService.getTopProducts();
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get('my-history')
   findMyHistory(@Request() req) {
     return this.ordersService.findMyHistory(req.user.identifier);

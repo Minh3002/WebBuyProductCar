@@ -1,7 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 
-export default function FilterBox({ filters, setFilters, onReset, filterOptions }) {
+export default function FilterBox({ filters, setFilters, onReset, filterOptions, sortOrder, setSortOrder }) {
   const hasActiveFilters = Object.values(filters).some(val => val !== '');
 
   const handleChange = (key, value) => {
@@ -10,13 +10,26 @@ export default function FilterBox({ filters, setFilters, onReset, filterOptions 
 
   return (
     <section className="bg-white p-6 rounded-lg shadow-sm border border-[#E5E5E5] mb-8 relative">
-      <div className="text-center mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-brand-dark uppercase tracking-tight">
-          Tìm Đúng Chính Xác Phụ Tùng Cho Xe Của Bạn
-        </h1>
-        <p className="text-xs sm:text-sm text-[#777777] mt-1">
-          Chọn thông tin xe bên dưới để hệ thống tự động lọc linh kiện tương thích
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+        <div className="text-center sm:text-left">
+          <h1 className="text-xl sm:text-2xl font-bold text-brand-dark uppercase tracking-tight">
+            Tìm Đúng Chính Xác Phụ Tùng Cho Xe Của Bạn
+          </h1>
+          <p className="text-xs sm:text-sm text-[#777777] mt-1">
+            Chọn thông tin xe bên dưới để hệ thống tự động lọc linh kiện tương thích
+          </p>
+        </div>
+        <div className="w-full sm:w-auto">
+          <select 
+            value={sortOrder} 
+            onChange={(e) => setSortOrder(e.target.value)}
+            className="w-full sm:w-48 p-2.5 bg-white border border-[#E5E5E5] rounded text-sm font-medium focus:outline-none focus:border-brand-primary cursor-pointer transition-colors shadow-sm"
+          >
+            <option value="default">Sắp xếp: Mặc định</option>
+            <option value="asc">Giá: Thấp đến Cao</option>
+            <option value="desc">Giá: Cao đến Thấp</option>
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
