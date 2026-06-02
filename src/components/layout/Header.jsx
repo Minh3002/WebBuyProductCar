@@ -32,6 +32,14 @@ export default function Header({ navigateTo, cartCount, searchKeyword, onSearchC
                   <User size={16} className="text-brand-primary" />
                   <span className="text-xs font-bold truncate max-w-[100px]">Chào, {(user.name || user.full_name)?.split(' ').pop() || user.name || user.full_name}</span>
                 </div>
+                {user.role === 'admin' && (
+                  <>
+                    <div className="w-px h-4 bg-neutral-600"></div>
+                    <button onClick={() => navigateTo('admin')} className="text-[#FF2F2F] hover:text-white transition-colors flex items-center gap-1 font-bold" title="Trang Quản trị">
+                      <span className="text-xs uppercase">Quản trị</span>
+                    </button>
+                  </>
+                )}
                 <div className="w-px h-4 bg-neutral-600"></div>
                 <button onClick={() => navigateTo('history')} className="text-neutral-400 hover:text-brand-primary transition-colors flex items-center gap-1" title="Lịch sử mua hàng">
                   <ClipboardList size={16} /> <span className="hidden sm:inline text-[10px] uppercase">Lịch sử</span>
