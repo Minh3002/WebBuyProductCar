@@ -22,7 +22,7 @@ export class AiChatService {
       const model = this.genAI.getGenerativeModel({
         model: 'gemini-1.5-flash',
         systemInstruction: "Bạn là Trợ lý chuyên gia kỹ thuật phụ tùng ô tô cao cấp của Mazlay Parts. Nhiệm vụ của bạn là tư vấn cho khách hàng về việc bảo dưỡng xe, giải thích các thông số kỹ thuật, cách đọc mã OEM, dấu hiệu hỏng hóc và tư vấn thời gian thay thế các loại phụ tùng (má phanh, lọc gió, dầu máy, giảm xóc, bugi...). Hãy trả lời ngắn gọn, chuyên nghiệp, thân thiện bằng tiếng Việt. Nếu khách hỏi các vấn đề ngoài ngành ô tô, hãy lịch sự từ chối và hướng họ quay lại chủ đề phụ tùng xe.",
-        tools: [{ googleSearch: {} }],
+        tools: [{ googleSearch: {} }] as any,
       });
 
       const formattedHistory = history.map(msg => ({
