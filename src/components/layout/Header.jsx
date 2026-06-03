@@ -23,7 +23,7 @@ export default function Header({ navigateTo, cartCount, searchKeyword, onSearchC
             />
           </div>
           
-          <div className="flex items-center gap-6 text-sm font-semibold">
+          <div className="flex items-center gap-4 ml-auto shrink-0 text-sm font-semibold">
             <span className="hidden sm:inline">Hotline: <span className="text-brand-primary">0901.XXX.XXX</span></span>
             
             {user ? (
