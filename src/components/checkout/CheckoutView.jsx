@@ -250,14 +250,14 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
 
             {formData.paymentMethod === 'transfer' && (
               <div className="mt-4 p-4 bg-neutral-50 border rounded-lg flex flex-col items-center text-center">
-                <img 
+                <img
                   src={`https://img.vietqr.io/image/VPBank-286957358-compact.png?amount=${totalAmount - discountValue}&addInfo=Thanh%20toan%20don%20hang%20SĐT%20${formData.phone}&accountName=NGUYEN%20TIEN%20MINH`}
                   alt="QR Code Thanh Toán"
                   className="w-48 h-48 mb-3 rounded-lg shadow-sm"
                 />
                 <p className="font-bold text-brand-dark">Ngân hàng VPBank</p>
                 <p className="font-mono text-lg font-bold text-brand-primary tracking-widest mt-1">286957358</p>
-                <p className="text-sm">Chủ TK: NGUYỄN TIẾN MINH</p>
+                <p className="text-sm">Chủ TK: TRƯƠNG GIA MINH</p>
                 <p className="text-xs text-gray-500 mt-2">Quét mã QR để thanh toán chính xác số tiền</p>
               </div>
             )}
@@ -266,13 +266,13 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
           <div className="pt-4 border-t">
             <h3 className="font-bold mb-3">Mã giảm giá</h3>
             <div className="flex gap-2">
-              <input 
-                type="text" 
-                value={couponCode} 
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())} 
+              <input
+                type="text"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                 disabled={discountValue > 0}
-                placeholder="Nhập mã giảm giá..." 
-                className="flex-grow p-2.5 border rounded focus:border-brand-primary outline-none uppercase" 
+                placeholder="Nhập mã giảm giá..."
+                className="flex-grow p-2.5 border rounded focus:border-brand-primary outline-none uppercase"
               />
               {discountValue > 0 ? (
                 <button type="button" onClick={handleRemoveCoupon} className="px-4 py-2 bg-neutral-200 text-neutral-700 font-bold rounded hover:bg-neutral-300">
@@ -293,9 +293,9 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
 
           <GuideWiki />
 
-          <button 
-            type="submit" 
-            disabled={isSubmitting || formData.vin.length !== 17} 
+          <button
+            type="submit"
+            disabled={isSubmitting || formData.vin.length !== 17}
             className={`w-full text-white font-bold py-4 rounded-lg uppercase tracking-wider transition-colors shadow-md mt-6 ${(isSubmitting || formData.vin.length !== 17) ? 'bg-neutral-400 cursor-not-allowed' : 'bg-[#FF2F2F] hover:bg-[#111111]'}`}
           >
             {isSubmitting ? 'Đang xử lý...' : 'Xác nhận đặt hàng'}
