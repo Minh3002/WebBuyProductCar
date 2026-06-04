@@ -243,7 +243,7 @@ export default function AdminDashboard({ user, onBack, handleLogout }) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-[#E5E5E5] p-6 max-w-6xl mx-auto relative">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-black text-brand-dark uppercase tracking-wide">Quản trị Hệ Thống</h2>
+        <h2 className="text-2xl font-bold text-brand-dark uppercase tracking-wider">Quản trị Hệ Thống</h2>
         <button onClick={onBack} className="px-4 py-2 bg-neutral-200 rounded font-bold hover:bg-neutral-300">Đóng</button>
       </div>
 
