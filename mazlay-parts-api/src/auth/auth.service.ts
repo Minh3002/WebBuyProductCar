@@ -52,8 +52,19 @@ export class AuthService {
         throw new UnauthorizedException('Tài khoản hoặc mật khẩu không đúng');
       }
 
-      // 4. So sánh mật khẩu bằng chữ thô (Plain Text)
-      if (password !== user.password) {
+      // 4. So sánh mật khẩu an toàn
+      let isMatch = false;
+      if (role === 'admin') {
+        isMatch = (password === user.password); // Admin dùng Plain Text
+      } else {
+        if (user.password && user.password.startsWith('$2b$')) {
+           isMatch = await bcrypt.compare(password, user.password);
+        } else {
+           isMatch = (password === user.password); // Fallback tài khoản cũ
+        }
+      }
+
+      if (!isMatch) {
         throw new UnauthorizedException('Tài khoản hoặc mật khẩu không đúng');
       }
 
@@ -103,8 +114,9 @@ export class AuthService {
       }
     }
 
-    // Mặc định khách hàng là 12345 lưu dạng thô
-    const finalPassword = '12345';
+    // Mặc định khách hàng là 12345 nhưng mã hóa bcrypt an toàn
+    const SALT_ROUNDS = 10;
+    const finalPassword = await bcrypt.hash('12345', SALT_ROUNDS);
 
     const newCustomer = new this.customerModel({
       _id: phone,

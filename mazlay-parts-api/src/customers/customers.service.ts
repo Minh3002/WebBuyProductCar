@@ -13,10 +13,13 @@ export class CustomersService {
   }
 
   async create(createCustomerDto: any): Promise<Customer> {
+    const SALT_ROUNDS = 10;
+    const hashedPassword = await bcrypt.hash('12345', SALT_ROUNDS);
+
     const newCustomer = new this.customerModel({
       ...createCustomerDto,
       _id: createCustomerDto.phone,
-      password: '12345',
+      password: hashedPassword,
       role: 'customer',
       isActive: true,
       owned_vehicles: []

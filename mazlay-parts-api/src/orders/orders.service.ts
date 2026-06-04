@@ -69,12 +69,16 @@ export class OrdersService {
     // 1. Kiểm tra / Lưu khách hàng
     let customer = await this.customerModel.findById(createOrderDto.customer_phone).exec();
     if (!customer) {
+      const SALT_ROUNDS = 10;
+      const hashedPassword = await bcrypt.hash('12345', SALT_ROUNDS);
+      
       customer = new this.customerModel({
         _id: createOrderDto.customer_phone,
         name: createOrderDto.customer_name,
+        full_name: createOrderDto.customer_name,
         email: '',
         phone: createOrderDto.customer_phone,
-        password: '12345',
+        password: hashedPassword,
         role: 'customer',
         isActive: true,
         owned_vehicles: []
