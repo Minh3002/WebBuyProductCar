@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import axiosClient from '../../api/axiosClient';
-import html2pdf from 'html2pdf.js';
 
 export default function AdminDashboard({ user, onBack, handleLogout }) {
   const [activeTab, setActiveTab] = useState('orders'); // orders, customers, analytics, coupons
@@ -67,7 +66,7 @@ export default function AdminDashboard({ user, onBack, handleLogout }) {
 
   const handleApproveOrder = async (id) => {
     try {
-      await axiosClient.patch(`/orders/${id}/status`, { status: 'Đã duyệt và chờ giao hàng' });
+      await axiosClient.patch(`/orders/${id}/status`, { status: 'Đã duyệt' });
       alert('Đã duyệt đơn hàng thành công!');
       fetchData('orders');
     } catch (err) {
@@ -76,71 +75,88 @@ export default function AdminDashboard({ user, onBack, handleLogout }) {
   };
 
   const printInvoice = (order) => {
-    const element = document.createElement('div');
-    element.innerHTML = `
-      <div style="padding: 40px; font-family: sans-serif;">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h2 style="color: #ff2f2f; margin: 0; font-size: 28px; font-weight: 900;">MAZLAY PARTS</h2>
-          <p style="margin: 0; color: #555;">Hệ Thống Phụ Tùng Ô Tô Chính Hãng</p>
-        </div>
-        
-        <h1 style="text-align: center; color: #111; border-bottom: 2px solid #111; padding-bottom: 10px;">HÓA ĐƠN BÁN HÀNG</h1>
-        
-        <table style="width: 100%; margin-top: 20px;">
-          <tr>
-            <td style="width: 50%; vertical-align: top;">
-              <p><strong>Mã đơn hàng:</strong> ${order._id}</p>
-              <p><strong>Ngày đặt:</strong> ${new Date(order.createdAt || Date.now()).toLocaleDateString('vi-VN')}</p>
-              <p><strong>Phương thức TT:</strong> ${order.payment_method}</p>
-            </td>
-            <td style="width: 50%; vertical-align: top;">
-              <p><strong>Khách hàng:</strong> ${order.customer_name}</p>
-              <p><strong>SĐT:</strong> ${order.customer_phone}</p>
-              <p><strong>Địa chỉ:</strong> ${order.shipping_address}</p>
-              <p><strong>Số VIN:</strong> ${order.vin_number || 'Không có'}</p>
-            </td>
-          </tr>
-        </table>
-        
-        <table style="width: 100%; border-collapse: collapse; margin-top: 30px;">
-          <thead>
-            <tr style="background: #111; color: white;">
-              <th style="padding: 10px; border: 1px solid #111; text-align: left;">Sản phẩm</th>
-              <th style="padding: 10px; border: 1px solid #111; text-align: center;">SL</th>
-              <th style="padding: 10px; border: 1px solid #111; text-align: right;">Đơn giá</th>
-              <th style="padding: 10px; border: 1px solid #111; text-align: right;">Thành tiền</th>
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>In Hóa Đơn - ${order._id}</title>
+          <style>
+            body { font-family: 'Inter', Arial, sans-serif; padding: 40px; color: #111; line-height: 1.5; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .header h2 { color: #ff2f2f; margin: 0; font-size: 28px; font-weight: 900; }
+            .header p { margin: 0; color: #555; }
+            h1 { text-align: center; border-bottom: 2px solid #111; padding-bottom: 10px; font-size: 24px; }
+            .info-table { width: 100%; margin-top: 20px; }
+            .info-table td { width: 50%; vertical-align: top; padding-right: 20px; }
+            .items-table { width: 100%; border-collapse: collapse; margin-top: 30px; }
+            .items-table th { background: #111; color: white; padding: 10px; border: 1px solid #111; -webkit-print-color-adjust: exact; color-adjust: exact; print-color-adjust: exact; }
+            .items-table td { padding: 10px; border: 1px solid #ccc; }
+            .total { margin-top: 30px; text-align: right; }
+            .total h2 { color: #ff2f2f; margin: 0; }
+            .footer { margin-top: 50px; text-align: center; color: #777; font-size: 12px; }
+            @media print {
+              @page { margin: 0; }
+              body { padding: 2cm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>MAZLAY PARTS</h2>
+            <p>Hệ Thống Phụ Tùng Ô Tô Chính Hãng</p>
+          </div>
+          <h1>HÓA ĐƠN BÁN HÀNG</h1>
+          <table class="info-table">
+            <tr>
+              <td>
+                <p><strong>Mã đơn hàng:</strong> ${order._id}</p>
+                <p><strong>Ngày đặt:</strong> ${new Date(order.createdAt || Date.now()).toLocaleDateString('vi-VN')}</p>
+                <p><strong>Phương thức TT:</strong> ${order.payment_method}</p>
+              </td>
+              <td>
+                <p><strong>Khách hàng:</strong> ${order.customer_name}</p>
+                <p><strong>SĐT:</strong> ${order.customer_phone}</p>
+                <p><strong>Địa chỉ:</strong> ${order.shipping_address}</p>
+                <p><strong>Số VIN:</strong> ${order.vin_number || 'Không có'}</p>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            ${order.items.map(i => `
+          </table>
+          <table class="items-table">
+            <thead>
               <tr>
-                <td style="padding: 10px; border: 1px solid #ccc;">${i.title} <br><span style="font-size: 11px; color: #777;">(OEM: ${i.oem_code})</span></td>
-                <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${i.quantity}</td>
-                <td style="padding: 10px; border: 1px solid #ccc; text-align: right;">${i.price_at_purchase.toLocaleString('vi-VN')} đ</td>
-                <td style="padding: 10px; border: 1px solid #ccc; text-align: right; font-weight: bold;">${(i.price_at_purchase * i.quantity).toLocaleString('vi-VN')} đ</td>
+                <th style="text-align: left;">Sản phẩm</th>
+                <th style="text-align: center;">SL</th>
+                <th style="text-align: right;">Đơn giá</th>
+                <th style="text-align: right;">Thành tiền</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        
-        <div style="margin-top: 30px; text-align: right;">
-          <h2 style="color: #ff2f2f; margin: 0;">TỔNG TIỀN THANH TOÁN: ${order.total_amount.toLocaleString('vi-VN')} đ</h2>
-        </div>
-        
-        <div style="margin-top: 50px; text-align: center; color: #777; font-size: 12px;">
-          <p>Cảm ơn Quý khách đã tin tưởng và sử dụng dịch vụ của Mazlay Parts.</p>
-        </div>
-      </div>
-    `;
-
-    const opt = {
-      margin: 0.5,
-      filename: `Hoa_Don_Mazlay_${order._id}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    html2pdf().set(opt).from(element).save();
+            </thead>
+            <tbody>
+              ${order.items.map(i => `
+                <tr>
+                  <td>${i.title} <br><span style="font-size: 11px; color: #777;">(OEM: ${i.oem_code})</span></td>
+                  <td style="text-align: center;">${i.quantity}</td>
+                  <td style="text-align: right;">${i.price_at_purchase.toLocaleString('vi-VN')} đ</td>
+                  <td style="text-align: right; font-weight: bold;">${(i.price_at_purchase * i.quantity).toLocaleString('vi-VN')} đ</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="total">
+            <h2>TỔNG TIỀN THANH TOÁN: ${order.total_amount.toLocaleString('vi-VN')} đ</h2>
+          </div>
+          <div class="footer">
+            <p>Cảm ơn Quý khách đã tin tưởng và sử dụng dịch vụ của Mazlay Parts.</p>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 300);
   };
 
   // ---- CUSTOMER CRUD ----
