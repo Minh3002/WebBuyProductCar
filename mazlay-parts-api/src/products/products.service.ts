@@ -71,10 +71,9 @@ export class ProductsService {
     
     const results = await this.productModel.find(query).limit(10).lean().exec();
     return results.map(p => ({
-      title: p.title,
+      name: p.title,
       price: p.price,
-      brand: p.brand,
-      stock: p.stock_quantity,
+      status: p.stock_quantity > 0 ? "Còn hàng" : "Hết hàng",
       oem_code: p.oem_code
     }));
   }
