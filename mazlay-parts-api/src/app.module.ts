@@ -9,7 +9,6 @@ import { CustomersModule } from './customers/customers.module';
 import { OrdersModule } from './orders/orders.module';
 import { AuthModule } from './auth/auth.module';
 import { CouponsModule } from './coupons/coupons.module';
-import { AiChatModule } from './ai-chat/ai-chat.module';
 
 @Module({
   imports: [
@@ -46,7 +45,6 @@ import { AiChatModule } from './ai-chat/ai-chat.module';
     OrdersModule,
     AuthModule,
     CouponsModule,
-    AiChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],

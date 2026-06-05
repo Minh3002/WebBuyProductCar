@@ -56,6 +56,29 @@ export class ProductsService {
     return updatedProduct;
   }
 
+  async searchAi(keyword?: string, maxPrice?: number): Promise<any[]> {
+    const query: any = {};
+    if (keyword) {
+      query.$or = [
+        { title: { $regex: keyword, $options: 'i' } },
+        { category: { $regex: keyword, $options: 'i' } },
+        { oem_code: { $regex: keyword, $options: 'i' } }
+      ];
+    }
+    if (maxPrice) {
+      query.price = { $lte: Number(maxPrice) };
+    }
+    
+    const results = await this.productModel.find(query).limit(10).lean().exec();
+    return results.map(p => ({
+      title: p.title,
+      price: p.price,
+      brand: p.brand,
+      stock: p.stock_quantity,
+      oem_code: p.oem_code
+    }));
+  }
+
   async remove(id: string): Promise<any> {
     const deletedProduct = await this.productModel.findByIdAndDelete(id).exec();
     if (!deletedProduct) throw new NotFoundException('Sản phẩm không tồn tại');
