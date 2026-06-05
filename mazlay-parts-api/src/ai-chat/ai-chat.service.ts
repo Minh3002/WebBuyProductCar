@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { OAuth2Client } from 'google-auth-library';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
@@ -28,23 +29,40 @@ export class AiChatService {
     private configService: ConfigService,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>
   ) {
-    // Đọc API Key từ biến môi trường trên Vercel / File .env local
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    // Đọc API Key (dạng OAuth token AQ.Ab8RN...)
+    const apiKey = process.env.GEMINI_API_KEY?.trim() || '';
+    
+    console.log("TOKEN OAUTH LOCAL NHẬN ĐƯỢC LÀ:", apiKey);
     
     if (!apiKey) {
       console.error("CẢNH BÁO: Chưa cấu hình GEMINI_API_KEY!");
     }
 
-    // KHỞI TẠO ĐÚNG CÚ PHÁP: Truyền trực tiếp string apiKey vào constructor
-    // Cách viết này ép SDK chạy qua cổng /v1 chính thức và chấp nhận mọi định dạng mã key mới (kể cả đầu mã AQ.Ab8RN...)
-    this.genAI = new GoogleGenerativeAI(apiKey || '');
+    // Khởi tạo thư viện xác thực Google OAuth Auth Library
+    const authClient = new OAuth2Client();
+    authClient.setCredentials({ access_token: apiKey });
+
+    // Cấu hình fetch custom để đính kèm Bearer token vào Headers
+    const customFetch = async (url: string, init?: any) => {
+      const headers = await authClient.getRequestHeaders();
+      const customHeaders = new Headers(init.headers);
+      
+      // Bỏ API Key kiểu cũ để Google hiểu đây là OAuth
+      customHeaders.delete('x-goog-api-key');
+      customHeaders.set('Authorization', headers.Authorization);
+      
+      return fetch(url, { ...init, headers: customHeaders });
+    };
+
+    // Khởi tạo SDK với Dummy Key và nhét custom fetch OAuth vào Request Options
+    this.genAI = new GoogleGenerativeAI('DUMMY_KEY_FOR_OAUTH');
     
-    // Khởi tạo model
+    // Khởi tạo model với cấu hình OAuth Override
     this.model = this.genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
       systemInstruction: "Bạn là trợ lý chuyên gia phụ tùng ô tô thông minh của hệ thống Mazlay Parts. Hãy sử dụng công cụ tìm kiếm Google tích hợp để tra cứu thông tin kỹ thuật, mã OEM, thông số đời xe và giá cả phụ tùng mới nhất trên Internet, sau đó tổng hợp lại thành câu trả lời ngắn gọn, chính xác bằng tiếng Việt.",
       tools: [productSearchTool as any, { googleSearch: {} } as any]
-    });
+    }, { requestOptions: { fetch: customFetch as any } });
   }
 
   async searchProductsInDatabase(keyword?: string, maxPrice?: number) {
