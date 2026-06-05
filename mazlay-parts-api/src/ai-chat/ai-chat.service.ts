@@ -28,19 +28,23 @@ export class AiChatService {
     private configService: ConfigService,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>
   ) {
+    // Đọc API Key từ biến môi trường trên Vercel / File .env local
     const apiKey = process.env.GEMINI_API_KEY?.trim();
+    
     if (!apiKey) {
-      console.error("CHƯA CẤU HÌNH GEMINI_API_KEY TRÊN MÔI TRƯỜNG!");
-    } else {
-      // KHỞI TẠO ĐÚNG CÚ PHÁP SDK (Cần truyền String trực tiếp vào SDK chuẩn)
-      this.genAI = new GoogleGenerativeAI(apiKey);
-      
-      this.model = this.genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        systemInstruction: "Bạn là trợ lý chuyên gia phụ tùng ô tô thông minh của hệ thống Mazlay Parts. Hãy sử dụng công cụ tìm kiếm Google tích hợp để tra cứu thông tin kỹ thuật, mã OEM, thông số đời xe và giá cả phụ tùng mới nhất trên Internet, sau đó tổng hợp lại thành câu trả lời ngắn gọn, chính xác bằng tiếng Việt.",
-        tools: [productSearchTool as any, { googleSearch: {} } as any],
-      });
+      console.error("CẢNH BÁO: Chưa cấu hình GEMINI_API_KEY!");
     }
+
+    // KHỞI TẠO ĐÚNG CÚ PHÁP: Truyền trực tiếp string apiKey vào constructor
+    // Cách viết này ép SDK chạy qua cổng /v1 chính thức và chấp nhận mọi định dạng mã key mới (kể cả đầu mã AQ.Ab8RN...)
+    this.genAI = new GoogleGenerativeAI(apiKey || '');
+    
+    // Khởi tạo model
+    this.model = this.genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      systemInstruction: "Bạn là trợ lý chuyên gia phụ tùng ô tô thông minh của hệ thống Mazlay Parts. Hãy sử dụng công cụ tìm kiếm Google tích hợp để tra cứu thông tin kỹ thuật, mã OEM, thông số đời xe và giá cả phụ tùng mới nhất trên Internet, sau đó tổng hợp lại thành câu trả lời ngắn gọn, chính xác bằng tiếng Việt.",
+      tools: [productSearchTool as any, { googleSearch: {} } as any]
+    });
   }
 
   async searchProductsInDatabase(keyword?: string, maxPrice?: number) {
