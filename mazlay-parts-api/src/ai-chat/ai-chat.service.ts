@@ -68,10 +68,28 @@ export class AiChatService {
         tools: [productSearchTool as any, { googleSearch: {} } as any],
       });
 
-      const formattedHistory = history.map(msg => ({
-        role: msg.role === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.text }]
-      }));
+      let formattedHistory: any[] = [];
+      let lastRole = '';
+
+      for (const msg of history) {
+        const role = msg.role === 'user' ? 'user' : 'model';
+        // Bỏ qua tin nhắn model nếu lịch sử đang rỗng (Gemini bắt buộc tin nhắn đầu tiên phải là user)
+        if (role === 'model' && formattedHistory.length === 0) {
+          continue;
+        }
+        
+        // Đảm bảo các role xen kẽ nhau
+        if (role !== lastRole) {
+          formattedHistory.push({
+            role: role,
+            parts: [{ text: msg.text || '...' }]
+          });
+          lastRole = role;
+        } else {
+          // Nếu trùng role với tin nhắn trước, gộp text lại
+          formattedHistory[formattedHistory.length - 1].parts[0].text += '\n' + (msg.text || '...');
+        }
+      }
 
       const chat = model.startChat({
         history: formattedHistory,
@@ -96,9 +114,9 @@ export class AiChatService {
       }
 
       return result.response.text();
-    } catch (error) {
-      console.error("Lỗi AI Chatbot:", error);
-      return "Xin lỗi, hiện tại tôi không thể trả lời. Vui lòng thử lại sau ít phút.";
+    } catch (error: any) {
+      console.error("LỖI HỆ THỐNG AI CHI TIẾT:", error);
+      return `Xin lỗi, hiện tại tôi gặp khó khăn khi kết nối. Vui lòng thử lại sau ít phút.\n(Chi tiết lỗi hệ thống: ${error?.message || 'Lỗi không xác định'})`;
     }
   }
 }
