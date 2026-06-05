@@ -22,14 +22,24 @@ const productSearchTool = {
 @Injectable()
 export class AiChatService {
   private genAI: GoogleGenerativeAI;
+  private model: any;
 
   constructor(
     private configService: ConfigService,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>
   ) {
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
-    if (apiKey) {
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey) {
+      console.error("CHƯA CẤU HÌNH GEMINI_API_KEY TRÊN MÔI TRƯỜNG!");
+    } else {
+      // KHỞI TẠO ĐÚNG CÚ PHÁP SDK (Cần truyền String trực tiếp vào SDK chuẩn)
       this.genAI = new GoogleGenerativeAI(apiKey);
+      
+      this.model = this.genAI.getGenerativeModel({
+        model: 'gemini-1.5-flash',
+        systemInstruction: "Bạn là trợ lý chuyên gia phụ tùng ô tô thông minh của hệ thống Mazlay Parts. Hãy sử dụng công cụ tìm kiếm Google tích hợp để tra cứu thông tin kỹ thuật, mã OEM, thông số đời xe và giá cả phụ tùng mới nhất trên Internet, sau đó tổng hợp lại thành câu trả lời ngắn gọn, chính xác bằng tiếng Việt.",
+        tools: [productSearchTool as any, { googleSearch: {} } as any],
+      });
     }
   }
 
@@ -57,17 +67,11 @@ export class AiChatService {
   }
 
   async chat(message: string, history: any[] = []): Promise<string> {
-    if (!this.genAI) {
+    if (!this.genAI || !this.model) {
       return "Hệ thống AI hiện đang bảo trì hoặc chưa cấu hình API_KEY. Vui lòng liên hệ Admin.";
     }
 
     try {
-      const model = this.genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        systemInstruction: "Bạn là trợ lý chuyên gia phụ tùng ô tô thông minh của hệ thống Mazlay Parts. Hãy sử dụng công cụ tìm kiếm Google tích hợp để tra cứu thông tin kỹ thuật, mã OEM, thông số đời xe và giá cả phụ tùng mới nhất trên Internet, sau đó tổng hợp lại thành câu trả lời ngắn gọn, chính xác bằng tiếng Việt.",
-        tools: [productSearchTool as any, { googleSearch: {} } as any],
-      }, { apiVersion: 'v1' });
-
       let formattedHistory: any[] = [];
       let lastRole = '';
 
@@ -91,7 +95,7 @@ export class AiChatService {
         }
       }
 
-      const chat = model.startChat({
+      const chat = this.model.startChat({
         history: formattedHistory,
       });
 
