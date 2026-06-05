@@ -44,12 +44,12 @@ export class AiChatService {
 
     // Cấu hình fetch custom để đính kèm Bearer token vào Headers
     const customFetch = async (url: string, init?: any) => {
-      const headers = await authClient.getRequestHeaders();
+      const headers = await authClient.getRequestHeaders() as any;
       const customHeaders = new Headers(init.headers);
       
       // Bỏ API Key kiểu cũ để Google hiểu đây là OAuth
       customHeaders.delete('x-goog-api-key');
-      customHeaders.set('Authorization', headers.Authorization);
+      customHeaders.set('Authorization', headers.Authorization || headers['Authorization']);
       
       return fetch(url, { ...init, headers: customHeaders });
     };
@@ -62,7 +62,7 @@ export class AiChatService {
       model: "gemini-1.5-flash",
       systemInstruction: "Bạn là trợ lý chuyên gia phụ tùng ô tô thông minh của hệ thống Mazlay Parts. Hãy sử dụng công cụ tìm kiếm Google tích hợp để tra cứu thông tin kỹ thuật, mã OEM, thông số đời xe và giá cả phụ tùng mới nhất trên Internet, sau đó tổng hợp lại thành câu trả lời ngắn gọn, chính xác bằng tiếng Việt.",
       tools: [productSearchTool as any, { googleSearch: {} } as any]
-    }, { requestOptions: { fetch: customFetch as any } });
+    }, { fetch: customFetch as any });
   }
 
   async searchProductsInDatabase(keyword?: string, maxPrice?: number) {
