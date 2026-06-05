@@ -78,7 +78,6 @@ export class AiChatService {
       });
 
       let result = await chat.sendMessage(message);
-      let responseText = result.response.text();
       
       const functionCalls = result.response.functionCalls();
       if (functionCalls && functionCalls.length > 0) {
@@ -93,11 +92,10 @@ export class AiChatService {
               response: { content: searchResult }
             }
           }]);
-          responseText = result.response.text();
         }
       }
 
-      return responseText;
+      return result.response.text();
     } catch (error) {
       console.error("Lỗi AI Chatbot:", error);
       return "Xin lỗi, hiện tại tôi không thể trả lời. Vui lòng thử lại sau ít phút.";
