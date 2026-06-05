@@ -9,25 +9,5 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    
-    <!-- Coze Chatbot Script -->
-    <script src="https://sf-cdn.coze.com/obj/unpkg-va/flow-platform/chat-app-sdk/1.2.0-beta.6/libs/oversea/index.js"></script>
-    <script>
-      new CozeWebSDK.WebChatClient({
-        config: {
-          bot_id: '7647738776379441157',
-        },
-        componentProps: {
-          title: 'Coze',
-        },
-        auth: {
-          type: 'token',
-          token: 'pat_dtkuKrabiEvUpvlMQ11AlyyEV0DVpf8mDogsE1Hdd9xOZcJR7e6uhA3l6wpoCUMy',
-          onRefreshToken: function () {
-            return 'pat_dtkuKrabiEvUpvlMQ11AlyyEV0DVpf8mDogsE1Hdd9xOZcJR7e6uhA3l6wpoCUMy'
-          }
-        }
-      });
-    </script>
   </body>
 </html>

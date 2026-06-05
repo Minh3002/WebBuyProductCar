@@ -15,11 +15,6 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
-  @Get('search-ai')
-  searchAi(@Query('keyword') keyword?: string, @Query('maxPrice') maxPrice?: number) {
-    return this.productsService.searchAi(keyword, maxPrice);
-  }
-
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.productsService.findById(id);

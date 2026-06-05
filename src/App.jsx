@@ -8,6 +8,7 @@ import CheckoutView from './components/checkout/CheckoutView';
 import AuthModal from './components/auth/AuthModal';
 import PurchaseHistory from './components/history/PurchaseHistory';
 import AdminDashboard from './components/admin/AdminDashboard';
+import AiChatWidget from './components/chat/AiChatWidget';
 import axiosClient from './api/axiosClient';
 
 // Helper for Fuzzy Search
@@ -307,6 +308,7 @@ export default function App() {
         )}
       </main>
       
+      <AiChatWidget />
     </div>
   );
 }
