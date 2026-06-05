@@ -66,7 +66,7 @@ export class AiChatService {
         model: 'gemini-1.5-flash',
         systemInstruction: "Bạn là trợ lý chuyên gia phụ tùng ô tô thông minh của hệ thống Mazlay Parts. Hãy sử dụng công cụ tìm kiếm Google tích hợp để tra cứu thông tin kỹ thuật, mã OEM, thông số đời xe và giá cả phụ tùng mới nhất trên Internet, sau đó tổng hợp lại thành câu trả lời ngắn gọn, chính xác bằng tiếng Việt.",
         tools: [productSearchTool as any, { googleSearch: {} } as any],
-      });
+      }, { apiVersion: 'v1' });
 
       let formattedHistory: any[] = [];
       let lastRole = '';
