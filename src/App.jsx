@@ -9,7 +9,11 @@ import AuthModal from './components/auth/AuthModal';
 import PurchaseHistory from './components/history/PurchaseHistory';
 import AdminDashboard from './components/admin/AdminDashboard';
 import AiChatWidget from './components/chat/AiChatWidget';
+import SkeletonCard from './components/common/SkeletonCard';
+import RecentPurchaseToast from './components/notifications/RecentPurchaseToast';
 import axiosClient from './api/axiosClient';
+import AOS from 'aos';
+import 'aos/dist/aos.css';
 
 // Helper for Fuzzy Search
 const normalizeString = (str) => {
@@ -49,6 +53,15 @@ export default function App() {
         console.error('Lỗi phân tích user từ localstorage');
       }
     }
+  }, []);
+
+  // Khởi tạo AOS
+  useEffect(() => {
+    AOS.init({
+      duration: 800,
+      once: true,
+      easing: 'ease-out',
+    });
   }, []);
 
   // 1. Fetch TẤT CẢ sản phẩm 1 lần khi load app để làm data cho bộ lọc
@@ -228,9 +241,10 @@ export default function App() {
                 </div>
 
                 {isLoading ? (
-                  <div className="bg-white p-12 text-center rounded-lg border border-[#E5E5E5] shadow-sm flex flex-col items-center justify-center">
-                    <div className="w-8 h-8 border-4 border-[#FF2F2F] border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="text-[#777777] font-medium text-sm">Đang tải dữ liệu phụ tùng...</p>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                      <SkeletonCard key={n} />
+                    ))}
                   </div>
                 ) : error ? (
                   <div className="bg-white p-12 text-center rounded-lg border border-red-300 shadow-sm">
@@ -309,6 +323,7 @@ export default function App() {
       </main>
       
       <AiChatWidget />
+      <RecentPurchaseToast />
     </div>
   );
 }

@@ -14,7 +14,11 @@ export default function ProductCard({ product, onSelect, onQuickBuy }) {
   };
 
   return (
-    <div className="bg-white rounded-lg border border-[#E5E5E5] overflow-hidden flex flex-col justify-between hover:shadow-lg transition-shadow duration-300 group cursor-pointer" onClick={() => onSelect(product._id || product.id)}>
+    <div 
+      data-aos="fade-up"
+      className="bg-white rounded-lg border border-[#E5E5E5] overflow-hidden flex flex-col justify-between hover:-translate-y-1 hover:shadow-xl transition-all duration-300 group cursor-pointer" 
+      onClick={() => onSelect(product._id || product.id)}
+    >
       
       {/* Ảnh & Badge */}
       <div className="w-full aspect-square relative bg-neutral-100 overflow-hidden">
