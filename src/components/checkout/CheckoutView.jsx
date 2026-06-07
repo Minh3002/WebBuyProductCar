@@ -195,6 +195,31 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
             <span className="text-brand-primary text-2xl">{(totalAmount - discountValue).toLocaleString('vi-VN')} đ</span>
           </div>
         </div>
+
+        {/* Thông tin cửa hàng (Bản đồ & Liên hệ) */}
+        <div className="border-t mt-8 pt-6">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+            📍 Địa chỉ Cửa hàng
+          </h3>
+          <div className="rounded-lg overflow-hidden border border-neutral-200 mb-4 shadow-sm bg-neutral-100">
+            <iframe 
+              width="100%" 
+              height="250" 
+              style={{ border: 0 }} 
+              loading="lazy" 
+              allowFullScreen 
+              title="Bản đồ đường đi"
+              src="https://maps.google.com/maps?q=183%20Lương%20Ngọc%20Quyến,%20An%20Nhơn,%20Hồ%20Chí%20Minh&t=&z=15&ie=UTF8&iwloc=&output=embed"
+            ></iframe>
+          </div>
+          <div className="text-sm space-y-2 text-neutral-700 font-medium">
+            <p><strong className="text-brand-dark">Địa chỉ:</strong> 183 Lương Ngọc Quyến, An Nhơn, Hồ Chí Minh.</p>
+            <p><strong className="text-brand-dark">Giờ hoạt động:</strong> </p>
+            <p><strong className="text-brand-dark">Hotline/Zalo:</strong> 0906342047.</p>
+            <p><strong className="text-brand-dark">Email:</strong> truonggiaminh123@gmail.com.</p>
+          </div>
+        </div>
+
       </div>
 
       {/* CỘT PHẢI: FORM THANH TOÁN */}
@@ -293,13 +318,30 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
 
           <GuideWiki />
 
-          <button
-            type="submit"
-            disabled={isSubmitting || formData.vin.length !== 17}
-            className={`w-full text-white font-bold py-4 rounded-lg uppercase tracking-wider transition-colors shadow-md mt-6 ${(isSubmitting || formData.vin.length !== 17) ? 'bg-neutral-400 cursor-not-allowed' : 'bg-[#FF2F2F] hover:bg-[#111111]'}`}
-          >
-            {isSubmitting ? 'Đang xử lý...' : 'Xác nhận đặt hàng'}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 mt-6">
+            <button
+              type="submit"
+              disabled={isSubmitting || formData.vin.length !== 17}
+              className={`flex-1 text-white font-bold py-4 rounded-lg uppercase tracking-wider transition-colors shadow-md ${(isSubmitting || formData.vin.length !== 17) ? 'bg-neutral-400 cursor-not-allowed' : 'bg-[#FF2F2F] hover:bg-[#111111]'}`}
+            >
+              {isSubmitting ? 'Đang xử lý...' : 'Xác nhận đặt hàng'}
+            </button>
+
+            <a
+              href="https://zalo.me/0906342047"
+              target="_blank"
+              rel="noreferrer"
+              className="sm:w-[40%] bg-[#0068FF] hover:bg-[#0052cc] text-white font-bold py-4 rounded-lg uppercase tracking-wider transition-colors shadow-md flex items-center justify-center gap-2 group relative"
+            >
+              <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg" alt="Zalo" className="w-5 h-5 brightness-0 invert" />
+              Tư vấn Zalo
+              {/* Tooltip số điện thoại hiện khi Hover trên Desktop */}
+              <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-xs py-1 px-3 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none hidden sm:block">
+                0906.342.047
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-900"></div>
+              </div>
+            </a>
+          </div>
         </form>
       </div>
     </div>
