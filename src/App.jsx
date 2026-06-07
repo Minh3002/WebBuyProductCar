@@ -179,9 +179,13 @@ export default function App() {
 
   const handleQuickBuy = (product) => {
     setCartItems(prev => {
-      const existing = prev.find(item => item._id === product._id || item.id === product.id);
+      // Helper function to safely get ID
+      const getProductId = (p) => p._id || p.id;
+      const targetId = getProductId(product);
+
+      const existing = prev.find(item => getProductId(item) === targetId);
       if (existing) {
-        return prev.map(item => (item._id === product._id || item.id === product.id) ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map(item => getProductId(item) === targetId ? { ...item, quantity: item.quantity + 1 } : item);
       }
       return [...prev, { ...product, quantity: 1 }];
     });
