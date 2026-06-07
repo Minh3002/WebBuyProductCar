@@ -1,99 +1,130 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+
+const productSearchTool = {
+  functionDeclarations: [{
+    name: 'searchProductsInDatabase',
+    description: 'Tìm kiếm sản phẩm phụ tùng ô tô trong kho database theo tên, loại sản phẩm hoặc khoảng giá tối đa',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        keyword: { type: 'STRING', description: 'Từ khóa tên sản phẩm (ví dụ: cần gạt nước, má phanh)' },
+        maxPrice: { type: 'NUMBER', description: 'Mức giá tối đa mà khách hàng yêu cầu (ví dụ: 2000000)' }
+      }
+    }
+  }]
+};
 
 @Injectable()
 export class AiChatService {
   private genAI: GoogleGenerativeAI;
+  private model: any;
 
   constructor(
+    private configService: ConfigService,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>
   ) {
-    const apiKey = process.env.GEMINI_API_KEY?.trim() || '';
+    // Đọc API Key từ biến môi trường trên Vercel / File .env local
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    
     if (!apiKey) {
-      console.warn('GEMINI_API_KEY is not set!');
+      console.error("CẢNH BÁO: Chưa cấu hình GEMINI_API_KEY!");
     }
-    this.genAI = new GoogleGenerativeAI(apiKey);
+
+    // KHỞI TẠO ĐÚNG CÚ PHÁP: Truyền trực tiếp string apiKey vào constructor
+    // Cách viết này ép SDK chạy qua cổng /v1 chính thức và chấp nhận mọi định dạng mã key mới (kể cả đầu mã AQ.Ab8RN...)
+    this.genAI = new GoogleGenerativeAI(apiKey || '');
+    
+    // Khởi tạo model
+    this.model = this.genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      systemInstruction: "Bạn là trợ lý chuyên gia phụ tùng ô tô thông minh của hệ thống Mazlay Parts. Hãy sử dụng công cụ tìm kiếm Google tích hợp để tra cứu thông tin kỹ thuật, mã OEM, thông số đời xe và giá cả phụ tùng mới nhất trên Internet, sau đó tổng hợp lại thành câu trả lời ngắn gọn, chính xác bằng tiếng Việt.",
+      tools: [productSearchTool as any, { googleSearch: {} } as any]
+    });
   }
 
-  async query(message: string): Promise<string> {
+  async searchProductsInDatabase(keyword?: string, maxPrice?: number) {
+    const query: any = {};
+    if (keyword) {
+      query.$or = [
+        { title: { $regex: keyword, $options: 'i' } },
+        { category: { $regex: keyword, $options: 'i' } },
+        { oem_code: { $regex: keyword, $options: 'i' } }
+      ];
+    }
+    if (maxPrice) {
+      query.price = { $lte: maxPrice };
+    }
+    
+    const results = await this.productModel.find(query).limit(5).exec();
+    return results.map(p => ({
+      title: p.title,
+      price: p.price,
+      brand: p.brand,
+      stock: p.stock_quantity,
+      oem_code: p.oem_code
+    }));
+  }
+
+  async chat(message: string, history: any[] = []): Promise<string> {
+    if (!this.genAI || !this.model) {
+      return "Hệ thống AI hiện đang bảo trì hoặc chưa cấu hình API_KEY. Vui lòng liên hệ Admin.";
+    }
+
     try {
-      if (!process.env.GEMINI_API_KEY?.trim()) {
-        return "Xin lỗi, hệ thống AI chưa được cấu hình API Key. Vui lòng báo quản trị viên.";
-      }
+      let formattedHistory: any[] = [];
+      let lastRole = '';
 
-      // -----------------------------------------------------
-      // BƯỚC 1: Phân tích Ý định & Sinh lệnh Mongoose
-      // -----------------------------------------------------
-      const step1Model = this.genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        systemInstruction: `Bạn là trợ lý hệ thống. Hãy thực hiện 2 bước trong 1 lần phản hồi (JSON):
-BƯỚC 1: Phân tích ý định:
-- Nếu khách cần tìm hàng, giá, tồn kho -> Trả về JSON: { "is_query": true, "query": {}, "mess": "" }
-- Nếu khách chat xã giao -> Trả về JSON: { "is_query": false, "query": {}, "mess": "CÂU_TRẢ_LỜI_XÃ_GIAO" }
-
-BƯỚC 2 (NẾU IS_QUERY = TRUE): 
-- Hãy tự tạo lệnh tìm kiếm MongoDB (JSON Object).
-Ví dụ: { "title": { "$regex": "má phanh", "$options": "i" }, "price": { "$lte": 2000000 } }
-Schema cần lưu ý: { "title": String, "price": Number, "category": String, "stock_quantity": Number, "oem_code": String }
-
-LƯU Ý QUAN TRỌNG:
-- Trả về ĐÚNG cấu trúc JSON, không thêm văn bản bọc ngoài.`,
-        generationConfig: {
-          responseMimeType: "application/json"
+      for (const msg of history) {
+        const role = msg.role === 'user' ? 'user' : 'model';
+        // Bỏ qua tin nhắn model nếu lịch sử đang rỗng (Gemini bắt buộc tin nhắn đầu tiên phải là user)
+        if (role === 'model' && formattedHistory.length === 0) {
+          continue;
         }
+        
+        // Đảm bảo các role xen kẽ nhau
+        if (role !== lastRole) {
+          formattedHistory.push({
+            role: role,
+            parts: [{ text: msg.text || '...' }]
+          });
+          lastRole = role;
+        } else {
+          // Nếu trùng role với tin nhắn trước, gộp text lại
+          formattedHistory[formattedHistory.length - 1].parts[0].text += '\n' + (msg.text || '...');
+        }
+      }
+
+      const chat = this.model.startChat({
+        history: formattedHistory,
       });
 
-      const step1Result = await step1Model.generateContent(message);
-      const step1Text = step1Result.response.text();
+      let result = await chat.sendMessage(message);
       
-      let parsed: any;
-      try {
-        parsed = JSON.parse(step1Text);
-      } catch (e) {
-        console.error("Lỗi parse JSON Step 1:", step1Text);
-        return "Xin lỗi, hệ thống AI đang gặp sự cố khi xử lý dữ liệu. Vui lòng thử lại sau.";
+      const functionCalls = result.response.functionCalls();
+      if (functionCalls && functionCalls.length > 0) {
+        const call = functionCalls[0];
+        if (call.name === 'searchProductsInDatabase') {
+          const { keyword, maxPrice } = call.args as any;
+          const searchResult = await this.searchProductsInDatabase(keyword, maxPrice);
+          
+          result = await chat.sendMessage([{
+            functionResponse: {
+              name: 'searchProductsInDatabase',
+              response: { content: searchResult }
+            }
+          }]);
+        }
       }
 
-      // Xử lý Xã giao
-      if (!parsed.is_query) {
-        return parsed.mess || "Chào bạn! Bạn cần hỗ trợ tìm phụ tùng nào ạ?";
-      }
-
-      // -----------------------------------------------------
-      // BƯỚC 2: Truy vấn Database
-      // -----------------------------------------------------
-      let rawData: any[] = [];
-      try {
-        const dbQuery = typeof parsed.query === 'string' ? JSON.parse(parsed.query) : parsed.query;
-        // Chạy lệnh vào DB
-        rawData = await this.productModel.find(dbQuery || {}).limit(5).lean().exec();
-      } catch (dbErr) {
-        console.error("Lỗi Mongoose Query do AI sinh ra:", parsed.query);
-        rawData = [];
-      }
-
-      // -----------------------------------------------------
-      // BƯỚC 3: Dịch dữ liệu thô (RAW_DATA) thành câu Tư vấn
-      // -----------------------------------------------------
-      const step2Model = this.genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        systemInstruction: `Bạn là nhân viên bán hàng chuyên nghiệp tại cửa hàng Mazlay Parts. 
-Dựa vào USER_MESSAGE và RAW_DATA từ Database, hãy soạn câu trả lời ngắn gọn, thân thiện cho khách. 
-Tuyệt đối KHÔNG nhắc đến mã lệnh code hay database. Chỉ tập trung báo giá và tư vấn. 
-Nếu RAW_DATA rỗng (mảng []), hãy xin lỗi khách là chưa có hàng.`
-      });
-
-      const step2Prompt = `USER_MESSAGE: ${message}\n\nRAW_DATA: ${JSON.stringify(rawData)}`;
-      const step2Result = await step2Model.generateContent(step2Prompt);
-      
-      return step2Result.response.text();
-
+      return result.response.text();
     } catch (error: any) {
-      console.error("LỖI HỆ THỐNG AI 2-PASS:", error);
-      return `Xin lỗi, tôi gặp khó khăn khi kết nối. Chi tiết: ${error?.message || 'Lỗi mạng'}`;
+      console.error("LỖI HỆ THỐNG AI CHI TIẾT:", error);
+      return `Xin lỗi, hiện tại tôi gặp khó khăn khi kết nối. Vui lòng thử lại sau ít phút.\n(Chi tiết lỗi hệ thống: ${error?.message || 'Lỗi không xác định'})`;
     }
   }
 }

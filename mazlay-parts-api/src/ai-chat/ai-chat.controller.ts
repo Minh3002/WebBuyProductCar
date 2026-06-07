@@ -1,13 +1,13 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { AiChatService } from './ai-chat.service';
 
-@Controller('chat')
+@Controller('ai/chat')
 export class AiChatController {
   constructor(private readonly aiChatService: AiChatService) {}
 
-  @Post('query')
-  async query(@Body('message') message: string) {
-    const responseText = await this.aiChatService.query(message);
+  @Post()
+  async chat(@Body('message') message: string, @Body('history') history: any[]) {
+    const responseText = await this.aiChatService.chat(message, history);
     return { response: responseText };
   }
 }
