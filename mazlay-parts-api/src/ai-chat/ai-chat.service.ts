@@ -11,21 +11,18 @@ export class AiChatService {
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>
   ) {
-    const apiKey = process.env.GEMINI_API_KEY?.trim() || 'DUMMY_KEY';
+    const apiKey = process.env.GEMINI_API_KEY?.trim() || '';
+    if (!apiKey) {
+      console.warn('GEMINI_API_KEY is not set!');
+    }
     this.genAI = new GoogleGenerativeAI(apiKey);
   }
 
   async query(message: string): Promise<string> {
     try {
-      const apiKey = process.env.GEMINI_API_KEY?.trim() || '';
-      
-      // Override Fetch để nhét Bearer Token OAuth
-      const customFetch = async (url: string, init?: any) => {
-        const customHeaders = new Headers(init?.headers);
-        customHeaders.delete('x-goog-api-key');
-        customHeaders.set('Authorization', `Bearer ${apiKey}`);
-        return fetch(url, { ...init, headers: customHeaders });
-      };
+      if (!process.env.GEMINI_API_KEY?.trim()) {
+        return "Xin lỗi, hệ thống AI chưa được cấu hình API Key. Vui lòng báo quản trị viên.";
+      }
 
       // -----------------------------------------------------
       // BƯỚC 1: Phân tích Ý định & Sinh lệnh Mongoose
@@ -47,7 +44,7 @@ LƯU Ý QUAN TRỌNG:
         generationConfig: {
           responseMimeType: "application/json"
         }
-      }, { fetch: customFetch as any });
+      });
 
       const step1Result = await step1Model.generateContent(message);
       const step1Text = step1Result.response.text();
@@ -68,7 +65,7 @@ LƯU Ý QUAN TRỌNG:
       // -----------------------------------------------------
       // BƯỚC 2: Truy vấn Database
       // -----------------------------------------------------
-      let rawData = [];
+      let rawData: any[] = [];
       try {
         const dbQuery = typeof parsed.query === 'string' ? JSON.parse(parsed.query) : parsed.query;
         // Chạy lệnh vào DB
@@ -87,7 +84,7 @@ LƯU Ý QUAN TRỌNG:
 Dựa vào USER_MESSAGE và RAW_DATA từ Database, hãy soạn câu trả lời ngắn gọn, thân thiện cho khách. 
 Tuyệt đối KHÔNG nhắc đến mã lệnh code hay database. Chỉ tập trung báo giá và tư vấn. 
 Nếu RAW_DATA rỗng (mảng []), hãy xin lỗi khách là chưa có hàng.`
-      }, { fetch: customFetch as any });
+      });
 
       const step2Prompt = `USER_MESSAGE: ${message}\n\nRAW_DATA: ${JSON.stringify(rawData)}`;
       const step2Result = await step2Model.generateContent(step2Prompt);
