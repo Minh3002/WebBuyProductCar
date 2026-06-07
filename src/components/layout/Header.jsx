@@ -53,7 +53,7 @@ export default function Header({ navigateTo, cartCount, searchKeyword, onSearchC
             
             {user ? (
               <div className="flex items-center gap-3 bg-neutral-800 px-3 py-1.5 rounded-full border border-neutral-700">
-                <div className="flex items-center gap-2 hover:text-brand-primary transition-colors cursor-pointer">
+                <div onClick={() => navigateTo('profile')} className="flex items-center gap-2 hover:text-brand-primary transition-colors cursor-pointer" title="Hồ sơ cá nhân">
                   <User size={16} className="text-brand-primary" />
                   <span className="text-xs font-bold truncate max-w-[100px]">Chào, {(user.name || user.full_name)?.split(' ').pop() || user.name || user.full_name}</span>
                 </div>
@@ -104,10 +104,9 @@ export default function Header({ navigateTo, cartCount, searchKeyword, onSearchC
             <div className="text-sm font-semibold">Hotline: <span className="text-brand-primary">0901.XXX.XXX</span></div>
             {user ? (
               <>
-                <div className="flex items-center gap-2 text-sm">
-                  <User size={16} className="text-brand-primary" />
-                  <span className="font-bold">Chào, {user.name || user.full_name}</span>
-                </div>
+                <button onClick={() => { navigateTo('profile'); setIsMenuOpen(false); }} className="flex items-center gap-2 text-sm text-brand-primary hover:text-white font-bold w-full text-left">
+                  <User size={16} /> Chào, {user.name || user.full_name} (Hồ sơ)
+                </button>
                 {user.role === 'admin' && (
                   <button onClick={() => { navigateTo('admin'); setIsMenuOpen(false); }} className="flex items-center gap-2 text-[#FF2F2F] text-sm font-bold">
                     Quản trị hệ thống

@@ -7,6 +7,7 @@ import ProductView from './components/product/ProductView';
 import CheckoutView from './components/checkout/CheckoutView';
 import AuthModal from './components/auth/AuthModal';
 import PurchaseHistory from './components/history/PurchaseHistory';
+import ProfileView from './components/profile/ProfileView';
 import AdminDashboard from './components/admin/AdminDashboard';
 import AiChatWidget from './components/chat/AiChatWidget';
 import SkeletonCard from './components/common/SkeletonCard';
@@ -322,6 +323,14 @@ export default function App() {
             user={user} 
             onBack={() => navigateTo('home')} 
             handleLogout={handleLogout} 
+          />
+        )}
+
+        {currentView === 'profile' && (
+          <ProfileView 
+            user={user} 
+            setUser={setUser}
+            onBack={() => navigateTo('home')} 
           />
         )}
       </main>

@@ -12,6 +12,12 @@ export class CustomersService {
     return this.customerModel.find().exec();
   }
 
+  async findOne(id: string): Promise<Customer> {
+    const customer = await this.customerModel.findById(id).exec();
+    if (!customer) throw new NotFoundException('Không tìm thấy khách hàng');
+    return customer;
+  }
+
   async create(createCustomerDto: any): Promise<Customer> {
     const SALT_ROUNDS = 10;
     const hashedPassword = await bcrypt.hash('12345', SALT_ROUNDS);

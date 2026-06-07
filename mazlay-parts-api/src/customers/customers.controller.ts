@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CustomersService } from './customers.service';
 
@@ -10,6 +10,20 @@ export class CustomersController {
   @Get()
   findAll() {
     return this.customersService.findAll();
+  }
+
+  // Lấy thông tin cá nhân của User hiện tại
+  @Get('profile')
+  getProfile(@Req() req: any) {
+    const identifier = req.user?.identifier;
+    return this.customersService.findOne(identifier);
+  }
+
+  // Cập nhật thông tin cá nhân của User hiện tại
+  @Put('profile')
+  updateProfile(@Req() req: any, @Body() updateData: any) {
+    const identifier = req.user?.identifier;
+    return this.customersService.update(identifier, updateData);
   }
 
   @Post()
