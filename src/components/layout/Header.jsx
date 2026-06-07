@@ -37,7 +37,7 @@ export default function Header({ navigateTo, cartCount, searchKeyword, onSearchC
           </div>
           
           {/* Search Bar */}
-          <div className="w-full sm:w-1/2 relative order-last sm:order-none">
+          <div className="w-full sm:flex-1 sm:max-w-xl mx-0 sm:mx-6 relative order-last sm:order-none mt-2 sm:mt-0">
             <input 
               type="text" 
               value={searchKeyword || ''}
