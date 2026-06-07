@@ -30,9 +30,8 @@ export default function AiChatWidget() {
     setIsLoading(true);
 
     try {
-      const response = await axiosClient.post('/ai/chat', {
-        message: userMsg,
-        history: messages
+      const response = await axiosClient.post('/chat/query', {
+        message: userMsg
       });
       setMessages([...newMessages, { role: 'model', text: response.response }]);
     } catch (error) {
