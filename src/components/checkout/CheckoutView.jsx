@@ -56,7 +56,8 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
 
   const updateQuantity = (id, delta) => {
     setCartItems(prev => prev.map(item => {
-      if (item.id === id) {
+      const itemId = item._id || item.id;
+      if (itemId === id) {
         const newQ = item.quantity + delta;
         return newQ > 0 ? { ...item, quantity: newQ } : item;
       }
@@ -87,7 +88,7 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
   };
 
   const removeItem = (id) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
+    setCartItems(prev => prev.filter(item => (item._id || item.id) !== id));
   };
 
   const handleSubmit = async (e) => {
@@ -165,11 +166,11 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
                   <span className="font-bold text-brand-primary">{item.price.toLocaleString('vi-VN')} đ</span>
                   <div className="flex items-center gap-3">
                     <div className="flex items-center border rounded">
-                      <button onClick={() => updateQuantity(item.id, -1)} className="px-2 py-0.5 bg-neutral-100 hover:bg-neutral-200">-</button>
+                      <button type="button" onClick={() => updateQuantity(item._id || item.id, -1)} className="px-2 py-0.5 bg-neutral-100 hover:bg-neutral-200">-</button>
                       <span className="px-3 text-sm font-semibold">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, 1)} className="px-2 py-0.5 bg-neutral-100 hover:bg-neutral-200">+</button>
+                      <button type="button" onClick={() => updateQuantity(item._id || item.id, 1)} className="px-2 py-0.5 bg-neutral-100 hover:bg-neutral-200">+</button>
                     </div>
-                    <button onClick={() => removeItem(item.id)} className="text-[#FF2F2F] hover:text-red-700">
+                    <button type="button" onClick={() => removeItem(item._id || item.id)} className="text-[#FF2F2F] hover:text-red-700">
                       <Trash2 size={16} />
                     </button>
                   </div>
