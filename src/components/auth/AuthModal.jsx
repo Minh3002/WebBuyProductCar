@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import axiosClient from '../../api/axiosClient';
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
@@ -78,6 +79,43 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           {error && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-lg border border-red-100">
               {typeof error === 'string' ? error : error[0]}
+            </div>
+          )}
+
+          {isLoginView && (
+            <div className="mb-6 flex flex-col items-center gap-4 border-b pb-6">
+              <GoogleLogin
+                onSuccess={async (credentialResponse) => {
+                  try {
+                    setLoading(true);
+                    const res = await axiosClient.post('/auth/google-login', {
+                      token: credentialResponse.credential
+                    });
+                    localStorage.setItem('token', res.access_token);
+                    localStorage.setItem('user', JSON.stringify(res.user));
+                    onLoginSuccess(res.user);
+                    onClose();
+                  } catch (err) {
+                    setError('Đăng nhập Google thất bại. Vui lòng thử lại.');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                onError={() => {
+                  setError('Có lỗi xảy ra khi kết nối với Google.');
+                }}
+                useOneTap
+                theme="outline"
+                shape="rectangular"
+                text="signin_with"
+                size="large"
+              />
+              <div className="w-full relative flex items-center justify-center mt-2">
+                <div className="absolute border-t border-gray-200 w-full"></div>
+                <span className="bg-white px-3 text-xs text-gray-500 relative z-10 uppercase font-bold tracking-wider">
+                  HOẶC ĐĂNG NHẬP BẰNG EMAIL
+                </span>
+              </div>
             </div>
           )}
 

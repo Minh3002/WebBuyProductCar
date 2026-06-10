@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { OAuth2Client } from 'google-auth-library';
 import { Customer, CustomerDocument } from '../customers/schemas/customer.schema';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 
@@ -139,5 +140,59 @@ export class AuthService {
         role: newCustomer.role
       }
     };
+  }
+
+  async googleLogin(token: string) {
+    try {
+      const clientId = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID';
+      const client = new OAuth2Client(clientId);
+      const ticket = await client.verifyIdToken({
+        idToken: token,
+        audience: clientId,
+      });
+      const payload = ticket.getPayload();
+      if (!payload) {
+        throw new UnauthorizedException('Token Google không hợp lệ hoặc không có payload');
+      }
+      const email = payload.email;
+      const name = payload.name;
+
+      let user = await this.customerModel.findOne({ email });
+
+      if (!user) {
+        // Create new user for google
+        const SALT_ROUNDS = 10;
+        const finalPassword = await bcrypt.hash('12345', SALT_ROUNDS);
+        
+        user = new this.customerModel({
+          _id: email, // Use email as ID
+          name: name,
+          full_name: name,
+          email: email,
+          phone: '', // Can be empty or placeholder
+          password: finalPassword,
+          role: 'customer',
+          isActive: true,
+          owned_vehicles: []
+        });
+        await user.save();
+      }
+
+      return {
+        access_token: this.jwtService.sign({ identifier: user._id, role: user.role, name: user.name }),
+        user: { 
+          identifier: user._id, 
+          email: user.email,
+          name: user.name,
+          phone: user.phone,
+          role: user.role,
+          isActive: user.isActive,
+          owned_vehicles: user.owned_vehicles
+        }
+      };
+    } catch (error) {
+      console.error('Google Login Error:', error);
+      throw new UnauthorizedException('Xác thực Google thất bại');
+    }
   }
 }
