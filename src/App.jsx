@@ -32,6 +32,12 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [sortOrder, setSortOrder] = useState('default');
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) return savedTheme === 'dark';
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+  });
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -55,6 +61,11 @@ export default function App() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDarkMode);
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   // Khởi tạo AOS
   useEffect(() => {
@@ -208,7 +219,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-[#222222] font-sans pb-12">
+    <div className="min-h-screen bg-[#F8F9FA] text-[#222222] font-sans pb-12 transition-colors duration-300 dark:bg-[#0B0F14] dark:text-neutral-100">
       <AuthModal 
         isOpen={isAuthModalOpen} 
         onClose={() => setIsAuthModalOpen(false)} 
@@ -222,6 +233,8 @@ export default function App() {
         user={user}
         onLoginClick={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={() => setIsDarkMode(prev => !prev)}
       />
       
       <main className="max-w-[1200px] mx-auto px-4 py-8">
@@ -240,7 +253,7 @@ export default function App() {
               
               <section className="w-full md:w-3/4">
                 <div className="mb-4">
-                  <h3 className="text-base font-bold uppercase tracking-tight text-[#111111]">
+                  <h3 className="text-base font-bold uppercase tracking-tight text-[#111111] dark:text-neutral-100">
                     Sản phẩm phù hợp ({displayedProducts.length})
                   </h3>
                 </div>
@@ -252,15 +265,15 @@ export default function App() {
                     ))}
                   </div>
                 ) : error ? (
-                  <div className="bg-white p-12 text-center rounded-lg border border-red-300 shadow-sm">
+                  <div className="bg-white p-12 text-center rounded-lg border border-red-300 shadow-sm dark:bg-[#111827] dark:border-red-900/70">
                     <p className="text-red-500 font-medium text-sm">{error}</p>
                   </div>
                 ) : displayedProducts.length === 0 ? (
-                  <div className="bg-white p-12 text-center rounded-lg border border-[#E5E5E5] shadow-sm">
-                    <p className="text-[#111111] font-bold text-lg mb-2">
+                  <div className="bg-white p-12 text-center rounded-lg border border-[#E5E5E5] shadow-sm dark:bg-[#111827] dark:border-neutral-800">
+                    <p className="text-[#111111] font-bold text-lg mb-2 dark:text-neutral-100">
                       Không tìm thấy phụ tùng phù hợp với xe của bạn.
                     </p>
-                    <p className="text-[#777777] font-medium text-sm mb-6">
+                    <p className="text-[#777777] font-medium text-sm mb-6 dark:text-neutral-400">
                       Vui lòng liên hệ Kỹ thuật viên qua Zalo để tra cứu trực tiếp!
                     </p>
                     <a 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { ShoppingCart, User, LogOut, ClipboardList, Menu, X } from 'lucide-react';
+import { ShoppingCart, User, LogOut, ClipboardList, Menu, X, Moon, Sun } from 'lucide-react';
 
-export default function Header({ navigateTo, cartCount, searchKeyword, onSearchChange, user, onLoginClick, onLogout }) {
+export default function Header({ navigateTo, cartCount, searchKeyword, onSearchChange, user, onLoginClick, onLogout, isDarkMode, onToggleDarkMode }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
@@ -19,6 +19,14 @@ export default function Header({ navigateTo, cartCount, searchKeyword, onSearchC
             </div>
 
             <div className="flex items-center gap-4 sm:hidden">
+              <button
+                onClick={onToggleDarkMode}
+                className="text-white hover:text-brand-primary transition-colors"
+                title={isDarkMode ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
+                aria-label={isDarkMode ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
+              >
+                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
               <button 
                 onClick={() => navigateTo('checkout')}
                 className="relative flex items-center gap-2 hover:text-brand-primary transition-colors"
@@ -50,6 +58,14 @@ export default function Header({ navigateTo, cartCount, searchKeyword, onSearchC
           {/* Desktop Navigation */}
           <div className="hidden sm:flex items-center gap-4 ml-auto shrink-0 text-sm font-semibold">
             <span>Hotline: <span className="text-brand-primary">0901.XXX.XXX</span></span>
+            <button
+              onClick={onToggleDarkMode}
+              className="w-9 h-9 rounded-full bg-neutral-800 border border-neutral-700 hover:border-brand-primary hover:text-brand-primary transition-colors flex items-center justify-center"
+              title={isDarkMode ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
+              aria-label={isDarkMode ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
+            >
+              {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
             
             {user ? (
               <div className="flex items-center gap-3 bg-neutral-800 px-3 py-1.5 rounded-full border border-neutral-700">
@@ -102,6 +118,13 @@ export default function Header({ navigateTo, cartCount, searchKeyword, onSearchC
         {isMenuOpen && (
           <div className="sm:hidden border-t border-neutral-700 bg-neutral-900 px-4 py-3 flex flex-col gap-3">
             <div className="text-sm font-semibold">Hotline: <span className="text-brand-primary">0901.XXX.XXX</span></div>
+            <button
+              onClick={onToggleDarkMode}
+              className="flex items-center gap-2 text-neutral-300 text-sm hover:text-brand-primary"
+            >
+              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+              {isDarkMode ? 'Chế độ sáng' : 'Chế độ tối'}
+            </button>
             {user ? (
               <>
                 <button onClick={() => { navigateTo('profile'); setIsMenuOpen(false); }} className="flex items-center gap-2 text-sm text-brand-primary hover:text-white font-bold w-full text-left">
