@@ -18,6 +18,10 @@ export class CustomersService {
     return customer;
   }
 
+  async findByCondition(condition: any): Promise<Customer | null> {
+    return this.customerModel.findOne(condition).exec();
+  }
+
   async create(createCustomerDto: any): Promise<Customer> {
     const SALT_ROUNDS = 10;
     const hashedPassword = await bcrypt.hash('12345', SALT_ROUNDS);

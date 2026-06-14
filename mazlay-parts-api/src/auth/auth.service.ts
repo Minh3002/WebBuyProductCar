@@ -43,7 +43,7 @@ export class AuthService {
       // 2. Nếu không phải Admin, tìm tiếp trong bảng Customer
       if (!user) {
         user = await this.customerModel.findOne({
-          $or: [{ _id: identifier }, { email: identifier }]
+          $or: [{ _id: identifier }, { email: identifier }, { phone: identifier }]
         } as any);
         role = 'customer';
       }
@@ -169,7 +169,7 @@ export class AuthService {
           name: name,
           full_name: name,
           email: email,
-          phone: '', // Can be empty or placeholder
+          phone: 'Chưa cập nhật', // Gán giá trị mặc định để vượt qua Mongoose validation
           password: finalPassword,
           role: 'customer',
           isActive: true,

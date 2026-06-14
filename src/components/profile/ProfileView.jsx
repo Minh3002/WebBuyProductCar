@@ -41,8 +41,23 @@ export default function ProfileView({ user, setUser, onBack }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
     setMessage({ type: '', text: '' });
+
+    // Validate số điện thoại (tối thiểu 10 chữ số)
+    const phoneRegex = /^[0-9]{10,}$/;
+    if (formData.phone && formData.phone !== 'Chưa cập nhật' && !phoneRegex.test(formData.phone)) {
+      setMessage({ type: 'error', text: 'Số điện thoại không hợp lệ (chỉ nhập số, tối thiểu 10 chữ số).' });
+      return;
+    }
+
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (formData.email && !emailRegex.test(formData.email)) {
+      setMessage({ type: 'error', text: 'Email không hợp lệ.' });
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
       const response = await axiosClient.put('/customers/profile', formData);
@@ -117,23 +132,22 @@ export default function ProfileView({ user, setUser, onBack }) {
             
             <div>
               <label className="block text-sm font-bold text-brand-dark mb-1 flex items-center gap-2">
-                <Phone size={16} className="text-neutral-500" /> Số điện thoại (Định danh)
+                <Phone size={16} className="text-neutral-500" /> Số điện thoại
               </label>
               <input 
                 type="text" 
                 name="phone"
                 value={formData.phone} 
-                className="w-full p-2.5 border rounded bg-neutral-100 text-neutral-500 font-bold cursor-not-allowed outline-none" 
-                disabled
-                title="Số điện thoại là ID định danh không thể thay đổi"
+                onChange={handleChange}
+                className="w-full p-2.5 border rounded focus:border-brand-primary outline-none transition-colors" 
+                placeholder="Nhập số điện thoại (tối thiểu 10 số)"
               />
-              <p className="text-xs text-neutral-500 mt-1">* Liên hệ Hotline nếu bạn bị mất số này</p>
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-bold text-brand-dark mb-1 flex items-center gap-2">
-              <Mail size={16} className="text-neutral-500" /> Email liên hệ
+              <Mail size={16} className="text-neutral-500" /> Email liên hệ (Định danh)
             </label>
             <input 
               type="email" 
@@ -141,7 +155,7 @@ export default function ProfileView({ user, setUser, onBack }) {
               value={formData.email} 
               onChange={handleChange}
               className="w-full p-2.5 border rounded focus:border-brand-primary outline-none transition-colors" 
-              placeholder="VD: nguyenvana@gmail.com" 
+              placeholder="Nhập email mới"
             />
           </div>
 

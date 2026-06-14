@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Req, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CustomersService } from './customers.service';
 
@@ -21,8 +21,17 @@ export class CustomersController {
 
   // Cập nhật thông tin cá nhân của User hiện tại
   @Put('profile')
-  updateProfile(@Req() req: any, @Body() updateData: any) {
+  async updateProfile(@Req() req: any, @Body() updateData: any) {
     const identifier = req.user?.identifier;
+    
+    if (updateData.email) {
+      // Kiểm tra trùng lặp email
+      const existingEmail = await this.customersService.findByCondition({ email: updateData.email });
+      if (existingEmail && existingEmail._id !== identifier) {
+        throw new BadRequestException('Email đã được sử dụng bởi tài khoản khác');
+      }
+    }
+
     return this.customersService.update(identifier, updateData);
   }
 

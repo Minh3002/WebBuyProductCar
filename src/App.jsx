@@ -320,6 +320,7 @@ export default function App() {
               setCartItems([]);
               navigateTo('home');
             }}
+            onLoginClick={() => setIsAuthModalOpen(true)}
           />
         )}
 

@@ -20,7 +20,7 @@ export class Customer {
   @Prop({ default: '' })
   email: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, index: true })
   phone: string;
 
   @Prop()

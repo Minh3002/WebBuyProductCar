@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsEnum, IsNumber, ValidateNested, ArrayMinSize } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsNumber, ValidateNested, ArrayMinSize, IsOptional } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { IsValidVIN } from '../validators/vin.validator';
 
@@ -23,6 +23,9 @@ class OrderItemDto {
 }
 
 export class CreateOrderDto {
+  @IsString()
+  @IsOptional()
+  customer_id?: string;
   @IsString()
   @IsNotEmpty()
   customer_phone: string;

@@ -67,7 +67,18 @@ export class OrdersService {
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
     // 1. Kiểm tra / Lưu khách hàng
-    let customer = await this.customerModel.findById(createOrderDto.customer_phone).exec();
+    let customer;
+
+    if (createOrderDto.customer_id) {
+      // Đã đăng nhập
+      customer = await this.customerModel.findById(createOrderDto.customer_id).exec();
+    } else {
+      // Khách vãng lai, kiểm tra xem SĐT đã tồn tại chưa
+      customer = await this.customerModel.findOne({
+        $or: [{ _id: createOrderDto.customer_phone }, { phone: createOrderDto.customer_phone }, { email: createOrderDto.customer_phone }]
+      } as any).exec();
+    }
+
     if (!customer) {
       const SALT_ROUNDS = 10;
       const hashedPassword = await bcrypt.hash('12345', SALT_ROUNDS);

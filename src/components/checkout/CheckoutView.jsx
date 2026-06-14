@@ -4,10 +4,18 @@ import { ArrowLeft, Trash2, ShieldAlert, CreditCard, Banknote } from 'lucide-rea
 import GuideWiki from './GuideWiki';
 import axiosClient from '../../api/axiosClient';
 
-export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderSuccess, user }) {
+export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderSuccess, user, onLoginClick }) {
+  const getInitialPhone = (u) => {
+    if (!u) return '';
+    if (u.phone && u.phone !== 'Chưa cập nhật') return u.phone;
+    // Nếu identifier là số (không chứa @), có thể dùng làm phone
+    if (u.identifier && !u.identifier.includes('@')) return u.identifier;
+    return '';
+  };
+
   const [formData, setFormData] = useState({
     name: user?.full_name || '',
-    phone: user?.identifier || user?.phone || '',
+    phone: getInitialPhone(user),
     address: user?.address || '',
     vin: '',
     paymentMethod: 'cod'
@@ -24,7 +32,7 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
       setFormData(prev => ({
         ...prev,
         name: user.full_name || prev.name,
-        phone: user.identifier || user.phone || prev.phone,
+        phone: getInitialPhone(user) || prev.phone,
         address: user.address || prev.address,
       }));
     }
@@ -226,6 +234,20 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
       {/* CỘT PHẢI: FORM THANH TOÁN */}
       <div className="bg-white rounded-lg border border-[#E5E5E5] p-6 shadow-sm">
         <h2 className="text-xl font-bold border-b pb-4 mb-6">Thông tin nhận hàng</h2>
+
+        {user ? (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-sm font-semibold flex items-center gap-2">
+            <ShieldAlert size={18} className="text-blue-600" />
+            Bạn đang đặt hàng với tư cách là: {user.identifier || user.email || user.phone}
+          </div>
+        ) : (
+          <div className="mb-6 p-4 bg-neutral-50 border border-neutral-200 rounded-lg text-neutral-700 text-sm flex items-center justify-between">
+            <span>Bạn muốn theo dõi đơn hàng dễ dàng hơn?</span>
+            <button type="button" onClick={onLoginClick} className="font-bold text-brand-primary hover:underline">
+              Đăng nhập ngay
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>

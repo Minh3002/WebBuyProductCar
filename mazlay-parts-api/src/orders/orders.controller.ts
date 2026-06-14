@@ -3,12 +3,18 @@ import { AuthGuard } from '@nestjs/passport';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
+
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Post()
-  create(@Body() createOrderDto: CreateOrderDto) {
+  create(@Body() createOrderDto: CreateOrderDto, @Request() req) {
+    if (req.user?.identifier) {
+      createOrderDto.customer_id = req.user.identifier;
+    }
     return this.ordersService.create(createOrderDto);
   }
 
