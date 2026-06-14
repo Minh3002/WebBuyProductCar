@@ -114,6 +114,8 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
     try {
       const orderPayload = {
         customer_phone: formData.phone,
+        customer_email: user?.email || '',
+        email: user?.email || '',
         customer_name: formData.name,
         shipping_address: formData.address,
         vin_number: formData.vin,

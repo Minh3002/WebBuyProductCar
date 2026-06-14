@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { OAuth2Client } from 'google-auth-library';
 import { Customer, CustomerDocument } from '../customers/schemas/customer.schema';
+import { Order, OrderDocument } from '../orders/schemas/order.schema';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 
 @Injectable()
@@ -29,6 +30,7 @@ export class AuthService {
 
   constructor(
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
+    @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     private jwtService: JwtService
   ) {}
 
@@ -178,6 +180,8 @@ export class AuthService {
         await user.save();
       }
 
+      await this.linkExistingOrdersToCustomer(user);
+
       return {
         access_token: this.jwtService.sign({ identifier: user._id, role: user.role, name: user.name }),
         user: { 
@@ -194,5 +198,30 @@ export class AuthService {
       console.error('Google Login Error:', error);
       throw new UnauthorizedException('Xác thực Google thất bại');
     }
+  }
+
+  private async linkExistingOrdersToCustomer(user: CustomerDocument) {
+    const identifiers = [
+      user._id?.toString(),
+      user.email,
+      user.phone
+    ].filter((value): value is string => Boolean(value) && value !== 'Chưa cập nhật');
+
+    if (identifiers.length === 0) {
+      return;
+    }
+
+    await this.orderModel.updateMany(
+      {
+        $or: [
+          { customer_id: { $in: identifiers } },
+          { customer_phone: { $in: identifiers } },
+          { customer_email: { $in: identifiers } },
+          { email: { $in: identifiers } },
+          { userId: { $in: identifiers } }
+        ]
+      },
+      { $set: { customer_id: user._id.toString(), userId: user._id.toString() } }
+    ).exec();
   }
 }

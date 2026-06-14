@@ -6,10 +6,14 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { Customer, CustomerSchema } from '../customers/schemas/customer.schema';
+import { Order, OrderSchema } from '../orders/schemas/order.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Customer.name, schema: CustomerSchema }]),
+    MongooseModule.forFeature([
+      { name: Customer.name, schema: CustomerSchema },
+      { name: Order.name, schema: OrderSchema }
+    ]),
     PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'mazlay-secret-key-2026',

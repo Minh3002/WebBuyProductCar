@@ -72,6 +72,45 @@ export class OrdersService {
     if (createOrderDto.customer_id) {
       // Đã đăng nhập
       customer = await this.customerModel.findById(createOrderDto.customer_id).exec();
+      if (customer) {
+        createOrderDto.customer_id = customer._id.toString();
+        createOrderDto.userId = customer._id.toString();
+        createOrderDto.customer_email = customer.email || createOrderDto.customer_email || createOrderDto.email;
+        createOrderDto.email = createOrderDto.customer_email;
+
+        const shouldAttachPhone = createOrderDto.customer_phone && (
+          !customer.phone ||
+          customer.phone === 'Chưa cập nhật' ||
+          customer.phone === 'ChÆ°a cáº­p nháº­t'
+        );
+
+        if (shouldAttachPhone) {
+          customer.phone = createOrderDto.customer_phone;
+        }
+
+        let profileChanged = Boolean(shouldAttachPhone);
+
+        if (!customer.name && createOrderDto.customer_name) {
+          customer.name = createOrderDto.customer_name;
+          profileChanged = true;
+        }
+
+        if (!customer.full_name && createOrderDto.customer_name) {
+          customer.full_name = createOrderDto.customer_name;
+          profileChanged = true;
+        }
+
+        if (!customer.address && createOrderDto.shipping_address) {
+          customer.address = createOrderDto.shipping_address;
+          profileChanged = true;
+        }
+
+        if (profileChanged) {
+          await customer.save();
+        }
+
+        await this.linkExistingOrdersToCustomer(customer);
+      }
     } else {
       // Khách vãng lai, kiểm tra xem SĐT đã tồn tại chưa
       customer = await this.customerModel.findOne({
@@ -165,8 +204,59 @@ export class OrdersService {
     return this.orderModel.find().sort({ createdAt: -1 }).exec();
   }
 
-  async findMyHistory(phone: string): Promise<Order[]> {
-    return this.orderModel.find({ customer_phone: phone }).sort({ createdAt: -1 }).exec();
+  async findMyHistory(identifier: string): Promise<Order[]> {
+    const customer = await this.customerModel.findOne({
+      $or: [{ _id: identifier }, { phone: identifier }, { email: identifier }]
+    } as any).exec();
+
+    const identifiers = this.getCustomerLookupValues(identifier, customer);
+
+    return this.orderModel.find({
+      $or: [
+        { customer_id: { $in: identifiers } },
+        { customer_phone: { $in: identifiers } },
+        { customer_email: { $in: identifiers } },
+        { email: { $in: identifiers } },
+        { userId: { $in: identifiers } }
+      ]
+    }).sort({ createdAt: -1 }).exec();
+  }
+
+  private getCustomerLookupValues(identifier: string, customer?: CustomerDocument | null): string[] {
+    const values = [
+      identifier,
+      customer?._id?.toString(),
+      customer?.phone,
+      customer?.email
+    ];
+
+    return [...new Set(values.filter((value): value is string =>
+      Boolean(value) && value !== 'Chưa cập nhật'
+    ))];
+  }
+
+  private async linkExistingOrdersToCustomer(customer: CustomerDocument) {
+    const identifiers = this.getCustomerLookupValues(customer._id.toString(), customer);
+
+    await this.orderModel.updateMany(
+      {
+        $or: [
+          { customer_id: { $in: identifiers } },
+          { customer_phone: { $in: identifiers } },
+          { customer_email: { $in: identifiers } },
+          { email: { $in: identifiers } },
+          { userId: { $in: identifiers } }
+        ]
+      },
+      {
+        $set: {
+          customer_id: customer._id.toString(),
+          userId: customer._id.toString(),
+          customer_email: customer.email || undefined,
+          email: customer.email || undefined
+        }
+      }
+    ).exec();
   }
 
   async getTopProducts() {

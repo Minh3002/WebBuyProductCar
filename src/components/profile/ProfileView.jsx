@@ -61,6 +61,16 @@ export default function ProfileView({ user, setUser, onBack }) {
 
     try {
       const response = await axiosClient.put('/customers/profile', formData);
+      
+      if (response.requireRelogin) {
+        alert("Bạn đã thay đổi số điện thoại định danh. Vui lòng đăng nhập lại!");
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        if (setUser) setUser(null);
+        window.location.reload();
+        return;
+      }
+
       setMessage({ type: 'success', text: 'Cập nhật thông tin thành công!' });
       
       // Update the user context/state in App.jsx and localStorage
