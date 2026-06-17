@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import FilterBox from './components/dashboard/FilterBox';
@@ -27,6 +27,7 @@ export default function App() {
   const [activeProductId, setActiveProductId] = useState(null);
   
   const [cartItems, setCartItems] = useState([]);
+  const cartItemsRef = useRef([]);
   
   const [filters, setFilters] = useState({ year: '', make: '', model: '', engine: '' });
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
@@ -67,6 +68,10 @@ export default function App() {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
+  useEffect(() => {
+    cartItemsRef.current = cartItems;
+  }, [cartItems]);
+
   // Khởi tạo AOS
   useEffect(() => {
     AOS.init({
@@ -76,23 +81,24 @@ export default function App() {
     });
   }, []);
 
+  const fetchAllProducts = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await axiosClient.get('/products');
+      setAllProducts(Array.isArray(response) ? response : (response.data || []));
+    } catch (err) {
+      setError('Lỗi khi tải dữ liệu sản phẩm. Vui lòng thử lại sau.');
+      console.error("Fetch products error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   // 1. Fetch TẤT CẢ sản phẩm 1 lần khi load app để làm data cho bộ lọc
   useEffect(() => {
-    const fetchAllProducts = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await axiosClient.get('/products');
-        setAllProducts(Array.isArray(response) ? response : (response.data || []));
-      } catch (err) {
-        setError('Lỗi khi tải dữ liệu sản phẩm. Vui lòng thử lại sau.');
-        console.error("Fetch products error:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchAllProducts();
-  }, []);
+  }, [fetchAllProducts]);
 
   // 2. Gom tuỳ chọn động cho FilterBox (dựa vào danh sách allProducts và filters hiện tại)
   const filterOptions = useMemo(() => {
@@ -189,19 +195,46 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleQuickBuy = (product) => {
-    setCartItems(prev => {
-      // Helper function to safely get ID
-      const getProductId = (p) => p._id || p.id;
-      const targetId = getProductId(product);
+  const handleQuickBuy = async (product) => {
+    const getProductId = (p) => p._id || p.id;
+    const targetId = getProductId(product);
 
-      const existing = prev.find(item => getProductId(item) === targetId);
-      if (existing) {
-        return prev.map(item => getProductId(item) === targetId ? { ...item, quantity: item.quantity + 1 } : item);
+    try {
+      const latestProduct = await axiosClient.get(`/products/${targetId}`);
+      const availableStock = Number(latestProduct.stock_quantity || 0);
+
+      if (availableStock <= 0) {
+        alert('Sản phẩm đã hết hàng');
+        await fetchAllProducts();
+        return false;
       }
-      return [...prev, { ...product, quantity: 1 }];
-    });
-    alert(`Đã thêm ${product.title} vào giỏ hàng!`);
+
+      const existingCartItem = cartItemsRef.current.find(item => getProductId(item) === targetId);
+      const existingQuantity = existingCartItem?.quantity || 0;
+
+      if (existingQuantity >= availableStock) {
+        alert(`Sản phẩm chỉ còn ${availableStock} món trong kho.`);
+        return false;
+      }
+
+      const nextCartItems = existingCartItem
+        ? cartItemsRef.current.map(item =>
+            getProductId(item) === targetId
+              ? { ...item, ...latestProduct, quantity: item.quantity + 1 }
+              : item
+          )
+        : [...cartItemsRef.current, { ...latestProduct, quantity: 1 }];
+
+      cartItemsRef.current = nextCartItems;
+      setCartItems(nextCartItems);
+      alert(`Đã thêm ${latestProduct.title} vào giỏ hàng!`);
+      return true;
+
+    } catch (err) {
+      console.error('Check stock error:', err);
+      alert('Không thể kiểm tra tồn kho. Vui lòng thử lại sau.');
+      return false;
+    }
   };
 
   const handleLoginSuccess = (loggedInUser) => {
@@ -306,7 +339,10 @@ export default function App() {
           <ProductView 
             productId={activeProductId} 
             onBack={() => navigateTo('home')}
-            onAddToCart={(product) => { handleQuickBuy(product); navigateTo('checkout'); }}
+            onAddToCart={async (product) => {
+              const added = await handleQuickBuy(product);
+              if (added) navigateTo('checkout');
+            }}
           />
         )}
 
@@ -316,8 +352,10 @@ export default function App() {
             setCartItems={setCartItems}
             onBack={() => navigateTo('home')}
             user={user}
-            onOrderSuccess={() => {
+            onOrderSuccess={async () => {
               setCartItems([]);
+              cartItemsRef.current = [];
+              await fetchAllProducts();
               navigateTo('home');
             }}
             onLoginClick={() => setIsAuthModalOpen(true)}
@@ -329,6 +367,7 @@ export default function App() {
             user={user} 
             onBack={() => navigateTo('home')} 
             handleLogout={handleLogout}
+            onProductsChanged={fetchAllProducts}
           />
         )}
 

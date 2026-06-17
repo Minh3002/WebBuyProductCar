@@ -1,7 +1,10 @@
 import React from 'react';
 import { MessageCircle, ShoppingBag, Copy } from 'lucide-react';
+import { getProductImage, resolveMediaUrl } from '../../utils/media';
 
 export default function ProductCard({ product, onSelect, onQuickBuy }) {
+  const isAvailable = Number(product.stock_quantity || 0) > 0;
+
   const handleCopyOEM = (e, oem) => {
     e.stopPropagation(); // Ngăn click lan ra thẻ Card
     navigator.clipboard.writeText(oem);
@@ -23,14 +26,14 @@ export default function ProductCard({ product, onSelect, onQuickBuy }) {
       {/* Ảnh & Badge */}
       <div className="w-full aspect-square relative bg-neutral-100 overflow-hidden">
         <img 
-          src={product.image_url || product.image || 'https://images.unsplash.com/photo-1532581291347-9c39cf10a73c?q=80&w=400&auto=format&fit=crop'} 
+          src={resolveMediaUrl(getProductImage(product))} 
           alt={product.title} 
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
         <span className={`absolute top-2 left-2 px-2.5 py-1 rounded-md text-[10px] font-bold text-white uppercase tracking-wider shadow-sm ${
-          ((product.in_stock || product.inStock) && product.stock_quantity > 0) ? 'bg-emerald-600' : 'bg-neutral-500'
+          isAvailable ? 'bg-emerald-600' : 'bg-neutral-500'
         }`}>
-          {((product.in_stock || product.inStock) && product.stock_quantity > 0) ? 'Còn hàng' : 'Hết hàng'}
+          {isAvailable ? 'Còn hàng' : 'Hết hàng'}
         </span>
       </div>
 
@@ -70,15 +73,15 @@ export default function ProductCard({ product, onSelect, onQuickBuy }) {
         {/* Nút hành động */}
         <div className="flex gap-2">
           <button 
-            disabled={!((product.in_stock || product.inStock) && product.stock_quantity > 0)}
+            disabled={!isAvailable}
             onClick={handleQuickBuy}
             className={`flex-grow text-[11px] sm:text-xs font-bold uppercase py-2.5 rounded text-center transition-all duration-200 flex items-center justify-center gap-1 ${
-              ((product.in_stock || product.inStock) && product.stock_quantity > 0)
+              isAvailable
                 ? 'bg-[#FF2F2F] hover:bg-[#111111] text-white' 
                 : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
             }`}
           >
-            <ShoppingBag size={14} /> {((product.in_stock || product.inStock) && product.stock_quantity > 0) ? 'Mua ngay' : 'Hết hàng'}
+            <ShoppingBag size={14} /> {isAvailable ? 'Mua ngay' : 'Hết hàng'}
           </button>
           
           <a 

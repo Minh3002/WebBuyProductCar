@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, Logger, OnModuleInit, InternalServerErrorException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { Connection, Model, Types } from 'mongoose';
 import { Order, OrderDocument } from './schemas/order.schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Customer, CustomerDocument } from '../customers/schemas/customer.schema';
@@ -13,11 +13,76 @@ export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
 
   constructor(
+    @InjectConnection() private readonly connection: Connection,
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     private readonly mailerService: MailerService,
   ) {}
+
+  private groupOrderQuantities(items: CreateOrderDto['items']) {
+    return items.reduce((acc, item) => {
+      const productId = item.product_id;
+      acc.set(productId, (acc.get(productId) || 0) + Number(item.quantity || 0));
+      return acc;
+    }, new Map<string, number>());
+  }
+
+  private async validateOrderStock(items: CreateOrderDto['items']) {
+    const quantitiesByProduct = this.groupOrderQuantities(items);
+
+    for (const [productId, quantity] of quantitiesByProduct.entries()) {
+      if (!Types.ObjectId.isValid(productId)) {
+        throw new BadRequestException('Mã sản phẩm không hợp lệ');
+      }
+
+      const product = await this.productModel.findById(productId).exec();
+      if (!product) {
+        throw new BadRequestException('Sản phẩm không tồn tại');
+      }
+
+      if (quantity <= 0) {
+        throw new BadRequestException(`Số lượng đặt mua của [${product.title}] không hợp lệ.`);
+      }
+
+      if (product.stock_quantity < quantity) {
+        throw new BadRequestException(
+          `Sản phẩm [${product.title}] chỉ còn ${product.stock_quantity} sản phẩm trong kho.`,
+        );
+      }
+    }
+  }
+
+  private async deductStockForItems(items: CreateOrderDto['items'], session?: any) {
+    const quantitiesByProduct = this.groupOrderQuantities(items);
+
+    for (const [productId, quantity] of quantitiesByProduct.entries()) {
+      if (!Types.ObjectId.isValid(productId)) {
+        throw new BadRequestException('Mã sản phẩm trong đơn hàng không hợp lệ');
+      }
+
+      const orderItem = items.find((item) => item.product_id === productId);
+      const updatedProduct = await this.productModel.findOneAndUpdate(
+        {
+          _id: new Types.ObjectId(productId),
+          stock_quantity: { $gte: quantity },
+        },
+        { $inc: { stock_quantity: -quantity } },
+        { new: true, session },
+      ).exec();
+
+      if (!updatedProduct) {
+        throw new BadRequestException(
+          `Sản phẩm [${orderItem?.title || productId}] (OEM: ${orderItem?.oem_code || 'N/A'}) đã hết hàng hoặc không đủ số lượng.`,
+        );
+      }
+      await this.productModel.updateOne(
+        { _id: updatedProduct._id },
+        { $set: { in_stock: updatedProduct.stock_quantity > 0 } },
+        { session },
+      ).exec();
+    }
+  }
 
   async onModuleInit() {
     const count = await this.orderModel.countDocuments({ status: 'Hoàn thành' }).exec();
@@ -66,6 +131,8 @@ export class OrdersService {
   }
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
+    await this.validateOrderStock(createOrderDto.items);
+
     // 1. Kiểm tra / Lưu khách hàng
     let customer;
 
@@ -140,6 +207,13 @@ export class OrdersService {
     const newOrder = new this.orderModel(createOrderDto);
     newOrder.status = 'Chờ duyệt';
     const savedOrder = await newOrder.save();
+    try {
+      await this.deductStockForItems(createOrderDto.items);
+      savedOrder.stock_deducted = true;
+      await savedOrder.save();
+    } catch (error) {
+      throw error;
+    }
 
     // 3. Tự động gửi Email thông báo (Bất đồng bộ)
     this.sendOrderNotificationEmail(createOrderDto, savedOrder._id.toString())
@@ -156,47 +230,66 @@ export class OrdersService {
   }
 
   async updateStatus(id: string, status: string): Promise<Order> {
+    const session = await this.connection.startSession();
+
     try {
-      const order = await this.orderModel.findById(id).exec();
-      if (!order) {
-        throw new NotFoundException('Đơn hàng không tồn tại');
-      }
+      let savedOrder: OrderDocument | null = null;
 
-      const previousStatus = order.status;
-      const triggerDeductionStatuses = ['Đã duyệt', 'Hoàn thành', 'Đang giao'];
-      
-      // Nếu chuyển từ Chờ duyệt sang trạng thái cần trừ kho (tránh trừ 2 lần)
-      if (previousStatus === 'Chờ duyệt' && triggerDeductionStatuses.includes(status)) {
-        for (const item of order.items) {
-          // Trừ kho an toàn bằng toán tử $inc và điều kiện $gte
-          const updatedProduct = await this.productModel.findOneAndUpdate(
-            { _id: new Types.ObjectId(item.product_id), stock_quantity: { $gte: item.quantity } },
-            { $inc: { stock_quantity: -item.quantity } },
-            { new: true }
-          ).exec();
-
-          if (!updatedProduct) {
-            throw new BadRequestException(`Sản phẩm [${item.title}] (OEM: ${item.oem_code}) không đủ tồn kho để duyệt đơn.`);
-          }
-
-          // Tự động set in_stock = false nếu hết hàng
-          if (updatedProduct.stock_quantity === 0) {
-            await this.productModel.updateOne(
-              { _id: updatedProduct._id },
-              { $set: { in_stock: false } }
-            ).exec();
-          }
+      await session.withTransaction(async () => {
+        const order = await this.orderModel.findById(id).session(session).exec();
+        if (!order) {
+          throw new NotFoundException('Đơn hàng không tồn tại');
         }
+
+        const previousStatus = order.status;
+        const triggerDeductionStatuses = ['Đã duyệt', 'Hoàn thành', 'Đang giao'];
+
+        // Nếu chuyển từ Chờ duyệt sang trạng thái cần trừ kho (tránh trừ 2 lần)
+        if (previousStatus === 'Chờ duyệt' && triggerDeductionStatuses.includes(status) && !order.stock_deducted) {
+          const quantitiesByProduct = this.groupOrderQuantities(order.items as any);
+
+          for (const [productId, quantity] of quantitiesByProduct.entries()) {
+            if (!Types.ObjectId.isValid(productId)) {
+              throw new BadRequestException('Mã sản phẩm trong đơn hàng không hợp lệ');
+            }
+
+            const orderItem = order.items.find((item) => item.product_id === productId);
+            const updatedProduct = await this.productModel.findOneAndUpdate(
+              {
+                _id: new Types.ObjectId(productId),
+                stock_quantity: { $gte: quantity },
+              },
+              { $inc: { stock_quantity: -quantity } },
+              { new: true, session },
+            ).exec();
+
+            if (!updatedProduct) {
+              throw new BadRequestException(
+                `Sản phẩm [${orderItem?.title || productId}] (OEM: ${orderItem?.oem_code || 'N/A'}) không đủ tồn kho để duyệt đơn.`,
+              );
+            }
+          }
+
+          order.stock_deducted = true;
+        }
+
+        order.status = status;
+        savedOrder = await order.save({ session });
+      });
+
+      if (!savedOrder) {
+        throw new InternalServerErrorException('Không thể cập nhật trạng thái đơn hàng');
       }
 
-      order.status = status;
-      return await order.save();
+      return savedOrder;
     } catch (error) {
       if (error instanceof BadRequestException || error instanceof NotFoundException) {
         throw error;
       }
       this.logger.error('Lỗi khi duyệt đơn hàng:', error);
       throw new InternalServerErrorException('Có lỗi hệ thống xảy ra khi duyệt đơn');
+    } finally {
+      await session.endSession();
     }
   }
 

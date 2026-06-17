@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axiosClient from '../../api/axiosClient';
+import ProductManager from './ProductManager';
 
-export default function AdminDashboard({ user, onBack, handleLogout }) {
-  const [activeTab, setActiveTab] = useState('orders'); // orders, customers, analytics, coupons
+export default function AdminDashboard({ user, onBack, handleLogout, onProductsChanged }) {
+  const [activeTab, setActiveTab] = useState('orders'); // orders, customers, analytics, coupons, products
   
   // States
   const [orders, setOrders] = useState([]);
@@ -25,6 +26,8 @@ export default function AdminDashboard({ user, onBack, handleLogout }) {
   }, [activeTab]);
 
   const fetchData = async (tab) => {
+    if (tab === 'products') return;
+
     setIsLoading(true);
     try {
       if (tab === 'orders') {
@@ -248,13 +251,13 @@ export default function AdminDashboard({ user, onBack, handleLogout }) {
       </div>
 
       <div className="flex gap-4 border-b pb-4 mb-6 overflow-x-auto">
-        {['orders', 'customers', 'analytics', 'coupons'].map(tab => (
+        {['orders', 'products', 'customers', 'analytics', 'coupons'].map(tab => (
           <button 
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 font-bold rounded uppercase text-sm whitespace-nowrap ${activeTab === tab ? 'bg-brand-dark text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
           >
-            {tab === 'orders' ? 'Đơn hàng' : tab === 'customers' ? 'Khách hàng' : tab === 'analytics' ? 'Thống kê' : 'Coupons'}
+            {tab === 'orders' ? 'Đơn hàng' : tab === 'products' ? 'Sản phẩm' : tab === 'customers' ? 'Khách hàng' : tab === 'analytics' ? 'Thống kê' : 'Coupons'}
           </button>
         ))}
       </div>
@@ -304,6 +307,11 @@ export default function AdminDashboard({ user, onBack, handleLogout }) {
                 </tbody>
               </table>
             </div>
+          )}
+
+          {/* PRODUCTS TAB */}
+          {activeTab === 'products' && (
+            <ProductManager onProductsChanged={onProductsChanged} />
           )}
 
           {/* CUSTOMERS TAB */}

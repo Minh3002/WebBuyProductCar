@@ -3,6 +3,7 @@ import { ArrowLeft, Trash2, ShieldAlert, CreditCard, Banknote } from 'lucide-rea
 
 import GuideWiki from './GuideWiki';
 import axiosClient from '../../api/axiosClient';
+import { getProductImage, resolveMediaUrl } from '../../utils/media';
 
 export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderSuccess, user, onLoginClick }) {
   const getInitialPhone = (u) => {
@@ -62,7 +63,30 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
     }
   };
 
-  const updateQuantity = (id, delta) => {
+  const updateQuantity = async (id, delta) => {
+    if (delta > 0) {
+      try {
+        const latestProduct = await axiosClient.get(`/products/${id}`);
+        const availableStock = Number(latestProduct.stock_quantity || 0);
+        const currentItem = cartItems.find(item => (item._id || item.id) === id);
+
+        if (availableStock <= 0) {
+          alert('Sản phẩm đã hết hàng');
+          removeItem(id);
+          return;
+        }
+
+        if ((currentItem?.quantity || 0) >= availableStock) {
+          alert(`Sản phẩm chỉ còn ${availableStock} món trong kho.`);
+          return;
+        }
+      } catch (error) {
+        console.error('Check stock error:', error);
+        alert('Không thể kiểm tra tồn kho. Vui lòng thử lại sau.');
+        return;
+      }
+    }
+
     setCartItems(prev => prev.map(item => {
       const itemId = item._id || item.id;
       if (itemId === id) {
@@ -132,7 +156,7 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
 
       await axiosClient.post('/orders', orderPayload);
       alert('Đặt hàng thành công! Đơn hàng của bạn đã được chuyển tới Admin (Mến) để duyệt.');
-      if (onOrderSuccess) onOrderSuccess();
+      if (onOrderSuccess) await onOrderSuccess();
     } catch (error) {
       console.error('Submit order error:', error);
       const errorMsg = error.response?.data?.message;
@@ -166,7 +190,7 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
         <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
           {cartItems.map(item => (
             <div key={item.id || item._id} className="flex gap-4 border border-[#E5E5E5] p-3 rounded-lg">
-              <img src={item.image_url || item.image || 'https://images.unsplash.com/photo-1532581291347-9c39cf10a73c?q=80&w=400&auto=format&fit=crop'} alt={item.title} className="w-20 h-20 object-cover rounded bg-neutral-100" />
+              <img src={resolveMediaUrl(getProductImage(item))} alt={item.title} className="w-20 h-20 object-cover rounded bg-neutral-100" />
               <div className="flex-grow flex flex-col justify-between">
                 <div>
                   <h4 className="text-sm font-bold text-brand-dark line-clamp-1">{item.title}</h4>

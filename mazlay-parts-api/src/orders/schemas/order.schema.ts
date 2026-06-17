@@ -54,6 +54,9 @@ export class Order {
   @Prop({ required: true, enum: ['Chờ duyệt', 'Đã duyệt', 'Đang giao', 'Hoàn thành', 'Đã hủy'], default: 'Chờ duyệt' })
   status: string;
 
+  @Prop({ default: false })
+  stock_deducted: boolean;
+
   @Prop({ required: true, maxlength: 17, minlength: 17 })
   vin_number: string;
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, MessageCircle, PhoneCall, ShoppingCart, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import axiosClient from '../../api/axiosClient';
+import { getProductImage, resolveMediaUrl } from '../../utils/media';
 
 export default function ProductView({ productId, onBack, onAddToCart }) {
   const [product, setProduct] = useState(null);
@@ -48,6 +49,7 @@ export default function ProductView({ productId, onBack, onAddToCart }) {
   }
 
   if (!product) return null;
+  const isAvailable = Number(product.stock_quantity || 0) > 0;
 
   return (
     <div className="bg-white rounded-lg border border-[#E5E5E5] p-4 sm:p-8 shadow-sm">
@@ -65,7 +67,7 @@ export default function ProductView({ productId, onBack, onAddToCart }) {
         
         {/* Ảnh */}
         <div className="w-full aspect-square bg-neutral-50 rounded-lg overflow-hidden border border-[#E5E5E5]">
-          <img src={product.image_url || product.image || 'https://images.unsplash.com/photo-1532581291347-9c39cf10a73c?q=80&w=400&auto=format&fit=crop'} alt={product.title} className="w-full h-full object-cover" />
+          <img src={resolveMediaUrl(getProductImage(product))} alt={product.title} className="w-full h-full object-cover" />
         </div>
 
         {/* Thông tin đặt hàng */}
@@ -75,8 +77,8 @@ export default function ProductView({ productId, onBack, onAddToCart }) {
               <span className="px-2.5 py-1 bg-neutral-100 rounded text-xs font-bold text-neutral-700">
                 Thương hiệu: {product.brand || 'Đang cập nhật'}
               </span>
-              <span className={`px-2.5 py-1 rounded text-xs font-bold text-white ${((product.in_stock || product.inStock) && product.stock_quantity > 0) ? 'bg-emerald-600' : 'bg-neutral-500'}`}>
-                {((product.in_stock || product.inStock) && product.stock_quantity > 0) ? 'Còn hàng tại kho' : 'Hết hàng tạm thời'}
+              <span className={`px-2.5 py-1 rounded text-xs font-bold text-white ${isAvailable ? 'bg-emerald-600' : 'bg-neutral-500'}`}>
+                {isAvailable ? 'Còn hàng tại kho' : 'Hết hàng tạm thời'}
               </span>
             </div>
 
@@ -97,9 +99,9 @@ export default function ProductView({ productId, onBack, onAddToCart }) {
               <span className="text-3xl sm:text-4xl font-black text-[#FF2F2F]">
                 {product.price?.toLocaleString('vi-VN')} đ
               </span>
-              {product.oldPrice > 0 && (
+              {(product.old_price || product.oldPrice) > 0 && (
                 <span className="text-base text-[#777777] line-through">
-                  {product.oldPrice.toLocaleString('vi-VN')} đ
+                  {(product.old_price || product.oldPrice).toLocaleString('vi-VN')} đ
                 </span>
               )}
             </div>
@@ -118,15 +120,15 @@ export default function ProductView({ productId, onBack, onAddToCart }) {
           {/* Hành động */}
           <div className="space-y-3">
             <button 
-              disabled={!((product.in_stock || product.inStock) && product.stock_quantity > 0)}
+              disabled={!isAvailable}
               onClick={() => onAddToCart(product)}
               className={`w-full py-4 rounded-lg font-bold text-center uppercase tracking-wide text-sm sm:text-base shadow transition-all flex items-center justify-center gap-2 ${
-                ((product.in_stock || product.inStock) && product.stock_quantity > 0)
+                isAvailable
                   ? 'bg-[#FF2F2F] text-white hover:bg-[#111111]' 
                   : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
               }`}
             >
-              {((product.in_stock || product.inStock) && product.stock_quantity > 0) ? <><ShoppingCart size={20} /> Mua Ngay - Giao Hàng Toàn Quốc</> : '❌ Hết hàng'}
+              {isAvailable ? <><ShoppingCart size={20} /> Mua Ngay - Giao Hàng Toàn Quốc</> : '❌ Hết hàng'}
             </button>
 
             <div className="grid grid-cols-2 gap-3">

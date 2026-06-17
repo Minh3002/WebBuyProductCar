@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .form-input {
+    @apply w-full p-2.5 border rounded outline-none focus:border-brand-primary transition-colors;
+  }
+}
+
 @layer base {
   html {
     color-scheme: light;

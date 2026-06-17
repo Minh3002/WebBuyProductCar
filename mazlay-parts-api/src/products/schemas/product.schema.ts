@@ -20,6 +20,17 @@ export class Compatibility {
 
 export const CompatibilitySchema = SchemaFactory.createForClass(Compatibility);
 
+@Schema({ _id: false })
+export class Specification {
+  @Prop()
+  label: string;
+
+  @Prop()
+  value: string;
+}
+
+export const SpecificationSchema = SchemaFactory.createForClass(Specification);
+
 @Schema({ timestamps: true })
 export class Product {
   @Prop({ required: true })
@@ -43,6 +54,9 @@ export class Product {
   @Prop()
   image_url: string;
 
+  @Prop({ type: [String], default: [] })
+  images: string[];
+
   @Prop({ required: true, default: 0 })
   stock_quantity: number;
 
@@ -51,6 +65,18 @@ export class Product {
 
   @Prop()
   description: string;
+
+  @Prop()
+  origin: string;
+
+  @Prop()
+  warranty: string;
+
+  @Prop()
+  condition: string;
+
+  @Prop({ type: [SpecificationSchema], default: [] })
+  specifications: Specification[];
 
   @Prop({ type: [CompatibilitySchema], default: [] })
   compatibility: Compatibility[];

@@ -5,6 +5,7 @@ import { OrdersService } from './orders.service';
 import { Order, OrderSchema } from './schemas/order.schema';
 import { CustomersModule } from '../customers/customers.module';
 import { ProductsModule } from '../products/products.module';
+import { AdminGuard } from '../auth/admin.guard';
 
 @Module({
   imports: [
@@ -13,6 +14,6 @@ import { ProductsModule } from '../products/products.module';
     ProductsModule
   ],
   controllers: [OrdersController],
-  providers: [OrdersService]
+  providers: [OrdersService, AdminGuard]
 })
 export class OrdersModule {}
