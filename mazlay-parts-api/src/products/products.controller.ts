@@ -13,10 +13,34 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import { memoryStorage } from 'multer';
 import { AdminGuard } from '../auth/admin.guard';
 import { ProductsService } from './products.service';
+
+const hasCloudinaryConfig = Boolean(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET,
+);
+
+// Cấu hình Cloudinary bằng biến môi trường (Sẽ được nạp từ .env hoặc Vercel)
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const cloudinaryStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'products',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+  } as any,
+});
+
+const uploadStorage = hasCloudinaryConfig ? cloudinaryStorage : memoryStorage();
 
 @Controller('products')
 export class ProductsController {
@@ -32,13 +56,7 @@ export class ProductsController {
   @Post('upload-images')
   @UseInterceptors(
     FilesInterceptor('images', 10, {
-      storage: diskStorage({
-        destination: './uploads/products',
-        filename: (_req, file, callback) => {
-          const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-          callback(null, `product-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
+      storage: uploadStorage,
       fileFilter: (_req, file, callback) => {
         if (!file.mimetype.startsWith('image/')) {
           callback(new Error('Chỉ cho phép upload file ảnh'), false);
@@ -54,7 +72,10 @@ export class ProductsController {
   )
   uploadImages(@UploadedFiles() files: any[]) {
     return {
-      urls: files.map((file) => `/uploads/products/${file.filename}`),
+      urls: files.map((file) => {
+        if (file.path) return file.path;
+        return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+      }),
     };
   }
 
