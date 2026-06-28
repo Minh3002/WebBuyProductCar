@@ -10,6 +10,9 @@ import { OrdersModule } from './orders/orders.module';
 import { AuthModule } from './auth/auth.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { AiChatModule } from './ai-chat/ai-chat.module';
+import { AccessLogsModule } from './access-logs/access-logs.module';
+import { AccessLogMiddleware } from './access-logs/access-logs.middleware';
+import { MiddlewareConsumer, NestModule } from '@nestjs/common';
 
 @Module({
   imports: [
@@ -47,8 +50,13 @@ import { AiChatModule } from './ai-chat/ai-chat.module';
     AuthModule,
     CouponsModule,
     AiChatModule,
+    AccessLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(AccessLogMiddleware).forRoutes('*');
+  }
+}

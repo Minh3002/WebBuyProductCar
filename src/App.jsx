@@ -394,6 +394,7 @@ export default function App() {
       </main>
       
       <AiChatWidget 
+        allProducts={allProducts}
         onAddToCart={(product) => {
           handleQuickBuy(product);
           setCurrentView('checkout');

@@ -3,7 +3,9 @@ import { MessageSquare, X, Send, ShoppingBag } from 'lucide-react';
 import axiosClient from '../../api/axiosClient';
 import { getProductImage, resolveMediaUrl } from '../../utils/media';
 
-export default function AiChatWidget({ onAddToCart, onViewAll }) {
+import { getChatbotResponse } from '../../utils/chatbotKnowledge';
+
+export default function AiChatWidget({ onAddToCart, onViewAll, allProducts = [] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     { role: 'model', text: 'Xin chào! Tôi là Trợ lý Kỹ thuật AI của Mazlay Parts. Tôi có thể giúp gì cho bạn về bảo dưỡng, thông số kỹ thuật hay phụ tùng ô tô?' }
@@ -22,7 +24,7 @@ export default function AiChatWidget({ onAddToCart, onViewAll }) {
     }
   }, [messages, isOpen]);
 
-  const handleSend = async () => {
+  const handleSend = () => {
     if (!input.trim()) return;
     const userMsg = input.trim();
     const newMessages = [...messages, { role: 'user', text: userMsg }];
@@ -30,16 +32,16 @@ export default function AiChatWidget({ onAddToCart, onViewAll }) {
     setInput('');
     setIsLoading(true);
 
-    try {
-      const response = await axiosClient.post('/chat/query', {
-        message: userMsg
-      });
-      setMessages([...newMessages, { role: 'model', text: response.response, products: response.products }]);
-    } catch (error) {
-      setMessages([...newMessages, { role: 'model', text: 'Xin lỗi, hiện tại hệ thống AI đang quá tải. Vui lòng thử lại sau!' }]);
-    } finally {
-      setIsLoading(false);
-    }
+    setTimeout(() => {
+      try {
+        const response = getChatbotResponse(userMsg, allProducts);
+        setMessages([...newMessages, { role: 'model', text: response.response, products: response.products }]);
+      } catch (error) {
+        setMessages([...newMessages, { role: 'model', text: 'Xin lỗi, hiện tại hệ thống AI đang quá tải. Vui lòng thử lại sau!' }]);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 500); // Giả lập độ trễ nhỏ để trải nghiệm tự nhiên hơn
   };
 
   const handleKeyDown = (e) => {

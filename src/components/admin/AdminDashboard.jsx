@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axiosClient from '../../api/axiosClient';
 import ProductManager from './ProductManager';
+import DeviceManager from './DeviceManager';
 
 export default function AdminDashboard({ user, onBack, handleLogout, onProductsChanged }) {
   const [activeTab, setActiveTab] = useState('orders'); // orders, customers, analytics, coupons, products
@@ -251,13 +252,13 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
       </div>
 
       <div className="flex gap-4 border-b pb-4 mb-6 overflow-x-auto">
-        {['orders', 'products', 'customers', 'analytics', 'coupons'].map(tab => (
+        {['orders', 'products', 'customers', 'analytics', 'coupons', 'devices'].map(tab => (
           <button 
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 font-bold rounded uppercase text-sm whitespace-nowrap ${activeTab === tab ? 'bg-brand-dark text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
           >
-            {tab === 'orders' ? 'Đơn hàng' : tab === 'products' ? 'Sản phẩm' : tab === 'customers' ? 'Khách hàng' : tab === 'analytics' ? 'Thống kê' : 'Coupons'}
+            {tab === 'orders' ? 'Đơn hàng' : tab === 'products' ? 'Sản phẩm' : tab === 'customers' ? 'Khách hàng' : tab === 'analytics' ? 'Thống kê' : tab === 'coupons' ? 'Coupons' : 'Thiết bị'}
           </button>
         ))}
       </div>
@@ -438,6 +439,9 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
               </div>
             </div>
           )}
+
+          {/* DEVICES TAB */}
+          {activeTab === 'devices' && <DeviceManager />}
         </div>
       )}
 
