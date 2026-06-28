@@ -1,6 +1,7 @@
 import React from 'react';
 import { MessageCircle, ShoppingBag, Copy } from 'lucide-react';
 import { getProductImage, resolveMediaUrl } from '../../utils/media';
+import { motion } from 'framer-motion';
 
 export default function ProductCard({ product, onSelect, onQuickBuy }) {
   const isAvailable = Number(product.stock_quantity || 0) > 0;
@@ -17,18 +18,27 @@ export default function ProductCard({ product, onSelect, onQuickBuy }) {
   };
 
   return (
-    <div 
-      data-aos="fade-up"
-      className="bg-white rounded-lg border border-[#E5E5E5] overflow-hidden flex flex-col justify-between hover:-translate-y-1 hover:shadow-xl transition-all duration-300 group cursor-pointer" 
+    <motion.div 
+      className="bg-white rounded-lg border border-[#E5E5E5] overflow-hidden flex flex-col justify-between cursor-pointer" 
       onClick={() => onSelect(product._id || product.id)}
+      initial={{ opacity: 0, y: 50 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      whileHover={{ 
+        y: -5, 
+        boxShadow: "0px 10px 20px rgba(0,0,0,0.1)",
+        transition: { duration: 0.2 }
+      }}
     >
       
       {/* Ảnh & Badge */}
       <div className="w-full aspect-square relative bg-neutral-100 overflow-hidden">
-        <img 
+        <motion.img 
           src={resolveMediaUrl(getProductImage(product))} 
           alt={product.title} 
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="w-full h-full object-cover"
+          whileHover={{ scale: 1.05 }}
+          transition={{ duration: 0.5 }}
         />
         <span className={`absolute top-2 left-2 px-2.5 py-1 rounded-md text-[10px] font-bold text-white uppercase tracking-wider shadow-sm ${
           isAvailable ? 'bg-emerald-600' : 'bg-neutral-500'
@@ -96,6 +106,6 @@ export default function ProductCard({ product, onSelect, onQuickBuy }) {
           </a>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

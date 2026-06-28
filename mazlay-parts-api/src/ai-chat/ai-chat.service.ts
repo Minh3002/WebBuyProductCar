@@ -9,12 +9,12 @@ export class AiChatService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>
   ) {}
 
-  async query(message: string): Promise<string> {
+  async query(message: string): Promise<{ response: string; products: any[] }> {
     const text = message.toLowerCase().trim();
 
     // 1. Kiểm tra câu chào
     if (/^(chào|shop ơi|alo|hey|hi|xin chào)/.test(text)) {
-      return "Chào bạn! Bạn cần hỗ trợ tìm phụ tùng nào cho xe ạ?";
+      return { response: "Chào bạn! Bạn cần hỗ trợ tìm phụ tùng nào cho xe ạ?", products: [] };
     }
 
     // 2. Bóc tách giá tiền
@@ -49,7 +49,7 @@ export class AiChatService {
     keyword = keyword.replace(/\s+/g, ' ').trim();
 
     if (!keyword) {
-      return "Xin lỗi, mình chưa rõ bạn đang muốn tìm phụ tùng nào. Vui lòng nói rõ hơn nhé!";
+      return { response: "Xin lỗi, mình chưa rõ bạn đang muốn tìm phụ tùng nào. Vui lòng nói rõ hơn nhé!", products: [] };
     }
 
     // 4. Tìm kiếm trong Database
@@ -66,7 +66,7 @@ export class AiChatService {
 
     // 5. Định dạng câu trả lời
     if (results.length === 0) {
-      return `Xin lỗi bạn, hiện tại cửa hàng mình chưa có "${keyword}" trong tầm giá đó. Bạn có muốn tìm loại khác không ạ?`;
+      return { response: `Xin lỗi bạn, hiện tại cửa hàng mình chưa có "${keyword}" trong tầm giá đó. Bạn có muốn tìm loại khác không ạ?`, products: [] };
     }
 
     // Tìm giá thấp nhất và cao nhất
@@ -81,9 +81,9 @@ export class AiChatService {
     const formatPrice = (p: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
 
     if (minPrice === actualMaxPrice) {
-      return `Chào bạn! Cửa hàng mình đang có mẫu "${keyword}" với giá ${formatPrice(minPrice)}. Mời bạn xem chi tiết tại web nhé!`;
+      return { response: `Chào bạn! Cửa hàng mình đang có mẫu "${keyword}" với giá ${formatPrice(minPrice)}. Mời bạn xem chi tiết tại web nhé!`, products: results };
     }
 
-    return `Chào bạn! Cửa hàng mình đang có các mẫu "${keyword}" với giá từ ${formatPrice(minPrice)} đến ${formatPrice(actualMaxPrice)}. Mời bạn xem chi tiết tại web nhé!`;
+    return { response: `Chào bạn! Cửa hàng mình đang có các mẫu "${keyword}" với giá từ ${formatPrice(minPrice)} đến ${formatPrice(actualMaxPrice)}. Mời bạn xem chi tiết tại web nhé!`, products: results };
   }
 }

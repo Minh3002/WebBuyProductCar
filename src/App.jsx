@@ -13,8 +13,8 @@ import AiChatWidget from './components/chat/AiChatWidget';
 import SkeletonCard from './components/common/SkeletonCard';
 import RecentPurchaseToast from './components/notifications/RecentPurchaseToast';
 import axiosClient from './api/axiosClient';
-import AOS from 'aos';
-import 'aos/dist/aos.css';
+import { motion, AnimatePresence } from 'framer-motion';
+import HeroSlider from './components/layout/HeroSlider';
 
 // Helper for Fuzzy Search
 const normalizeString = (str) => {
@@ -72,14 +72,8 @@ export default function App() {
     cartItemsRef.current = cartItems;
   }, [cartItems]);
 
-  // Khởi tạo AOS
-  useEffect(() => {
-    AOS.init({
-      duration: 800,
-      once: true,
-      easing: 'ease-out',
-    });
-  }, []);
+  // Removed AOS
+
 
   const fetchAllProducts = useCallback(async () => {
     setIsLoading(true);
@@ -271,8 +265,17 @@ export default function App() {
       />
       
       <main className="max-w-[1200px] mx-auto px-4 py-8">
-        {currentView === 'home' && (
-          <>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentView}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.3 }}
+          >
+            {currentView === 'home' && (
+              <>
+                <HeroSlider />
             <FilterBox 
               filters={filters} 
               setFilters={setFilters} 
@@ -386,9 +389,17 @@ export default function App() {
             onBack={() => navigateTo('home')} 
           />
         )}
+          </motion.div>
+        </AnimatePresence>
       </main>
       
-      <AiChatWidget />
+      <AiChatWidget 
+        onAddToCart={(product) => {
+          handleQuickBuy(product);
+          setCurrentView('checkout');
+        }}
+        onViewAll={() => setCurrentView('home')}
+      />
       <RecentPurchaseToast />
     </div>
   );

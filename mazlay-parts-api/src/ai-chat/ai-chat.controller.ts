@@ -7,7 +7,6 @@ export class AiChatController {
 
   @Post('query')
   async query(@Body('message') message: string) {
-    const responseText = await this.aiChatService.query(message);
-    return { response: responseText };
+    return await this.aiChatService.query(message);
   }
 }
