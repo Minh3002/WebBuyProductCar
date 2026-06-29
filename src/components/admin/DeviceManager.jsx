@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Laptop, Smartphone, Search, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Laptop, Smartphone, Search, RefreshCw, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import axiosClient from '../../api/axiosClient';
 
 export default function DeviceManager() {
@@ -29,6 +29,29 @@ export default function DeviceManager() {
     fetchLogs();
   }, [page, filterDate]);
 
+  const handleDelete = async (id) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa lượt truy cập này?')) {
+      try {
+        await axiosClient.delete(`/admin/access-logs/${id}`);
+        fetchLogs();
+      } catch (err) {
+        console.error('Failed to delete log', err);
+      }
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (window.confirm('Hành động này sẽ xóa TOÀN BỘ lịch sử truy cập của hệ thống. Bạn có chắc chắn không?')) {
+      try {
+        await axiosClient.delete('/admin/access-logs/clear-all');
+        setPage(1);
+        fetchLogs();
+      } catch (err) {
+        console.error('Failed to clear logs', err);
+      }
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg border border-gray-200">
       <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-lg">
@@ -43,6 +66,13 @@ export default function DeviceManager() {
             onChange={(e) => setFilterDate(e.target.value)}
             className="border border-gray-300 rounded px-2 py-1.5 text-sm"
           />
+          <button 
+            onClick={handleClearAll}
+            className="px-3 py-1.5 bg-red-500 text-white font-semibold text-sm rounded hover:bg-red-600 transition-colors shadow-sm"
+            title="Xóa tất cả"
+          >
+            Xóa tất cả
+          </button>
           <button 
             onClick={() => { setPage(1); fetchLogs(); }}
             className="p-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
@@ -64,16 +94,17 @@ export default function DeviceManager() {
               <th className="p-3 border-b font-semibold">Người dùng</th>
               <th className="p-3 border-b font-semibold">Nguồn</th>
               <th className="p-3 border-b font-semibold text-right">Thời gian</th>
+              <th className="p-3 border-b font-semibold text-center w-16">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan="7" className="p-8 text-center text-gray-500">Đang tải dữ liệu...</td>
+                <td colSpan="8" className="p-8 text-center text-gray-500">Đang tải dữ liệu...</td>
               </tr>
             ) : logs.length === 0 ? (
               <tr>
-                <td colSpan="7" className="p-8 text-center text-gray-500">Không có dữ liệu truy cập</td>
+                <td colSpan="8" className="p-8 text-center text-gray-500">Không có dữ liệu truy cập</td>
               </tr>
             ) : (
               logs.map((log) => (
@@ -111,6 +142,15 @@ export default function DeviceManager() {
                   </td>
                   <td className="p-3 text-right text-gray-500 text-xs">
                     {new Date(log.createdAt).toLocaleString('vi-VN')}
+                  </td>
+                  <td className="p-3 text-center">
+                    <button 
+                      onClick={() => handleDelete(log._id)}
+                      className="p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+                      title="Xóa"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </td>
                 </tr>
               ))

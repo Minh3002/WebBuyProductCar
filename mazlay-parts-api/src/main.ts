@@ -13,6 +13,9 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Trust proxy for Vercel to get real IP
+  app.set('trust proxy', 1);
+
   app.setGlobalPrefix('api/v1');
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',

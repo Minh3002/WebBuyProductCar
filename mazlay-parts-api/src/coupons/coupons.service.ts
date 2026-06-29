@@ -8,7 +8,7 @@ export class CouponsService {
   constructor(@InjectModel(Coupon.name) private couponModel: Model<CouponDocument>) {}
 
   async findAll(): Promise<Coupon[]> {
-    return this.couponModel.find().exec();
+    return this.couponModel.find().sort({ createdAt: -1 }).exec();
   }
 
   async create(createCouponDto: any): Promise<Coupon> {

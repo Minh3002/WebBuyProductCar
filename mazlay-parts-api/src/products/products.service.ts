@@ -82,7 +82,7 @@ export class ProductsService {
       if (query.engine) filter.compatibility.$elemMatch.engine = query.engine;
     }
 
-    return this.productModel.find(filter).exec();
+    return this.productModel.find(filter).sort({ createdAt: -1 }).exec();
   }
 
   async findById(id: string): Promise<Product> {

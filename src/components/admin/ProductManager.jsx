@@ -20,7 +20,7 @@ const emptyProduct = {
   images: [],
 };
 
-const pageSize = 8;
+const pageSize = 12;
 
 export default function ProductManager({ onProductsChanged }) {
   const [products, setProducts] = useState([]);

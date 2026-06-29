@@ -42,6 +42,7 @@ export default function App() {
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [authLoaded, setAuthLoaded] = useState(false);
 
   const [allProducts, setAllProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -61,6 +62,7 @@ export default function App() {
         console.error('Lỗi phân tích user từ localstorage');
       }
     }
+    setAuthLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -71,6 +73,36 @@ export default function App() {
   useEffect(() => {
     cartItemsRef.current = cartItems;
   }, [cartItems]);
+
+  // Tracking API (Chống spam bằng sessionStorage)
+  useEffect(() => {
+    if (!authLoaded) return;
+    
+    const trackVisit = async () => {
+      // Chỉ gửi khi session này chưa ghi nhận hoặc nếu chưa track user này
+      const trackedUserId = sessionStorage.getItem('trackedUserId') || '';
+      const currentUserId = user?.identifier || user?._id || 'guest';
+      
+      if (!sessionStorage.getItem('isLoggedTraffic') || trackedUserId !== currentUserId) {
+        try {
+          await axiosClient.post('/admin/access-logs/track', {
+            url: window.location.href,
+            search: window.location.search,
+            referrer: document.referrer,
+            userId: user?.identifier || user?._id || '',
+            userName: user?.name || user?.full_name || 'Khách truy cập',
+            userEmail: user?.email || '',
+            userRole: user?.role || 'Guest'
+          });
+          sessionStorage.setItem('isLoggedTraffic', 'true');
+          sessionStorage.setItem('trackedUserId', currentUserId);
+        } catch (err) {
+          console.error('Track visit error:', err);
+        }
+      }
+    };
+    trackVisit();
+  }, [authLoaded, user]);
 
   // Removed AOS
 

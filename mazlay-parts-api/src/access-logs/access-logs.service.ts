@@ -53,4 +53,24 @@ export class AccessLogsService {
       totalPages: Math.ceil(total / limit),
     };
   }
+
+  async clearAll(): Promise<{ success: boolean; deletedCount: number }> {
+    try {
+      const result = await this.accessLogModel.deleteMany({}).exec();
+      return { success: true, deletedCount: result.deletedCount };
+    } catch (error) {
+      this.logger.error('Failed to clear access logs', error);
+      return { success: false, deletedCount: 0 };
+    }
+  }
+
+  async remove(id: string): Promise<{ success: boolean }> {
+    try {
+      await this.accessLogModel.findByIdAndDelete(id).exec();
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`Failed to delete access log ${id}`, error);
+      return { success: false };
+    }
+  }
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import axiosClient from '../../api/axiosClient';
 import ProductManager from './ProductManager';
 import DeviceManager from './DeviceManager';
@@ -12,6 +13,14 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
   const [topProducts, setTopProducts] = useState([]);
   const [coupons, setCoupons] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   // Customer Modal States
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
@@ -267,8 +276,43 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
         <div className="py-12 text-center text-gray-500">Đang tải dữ liệu...</div>
       ) : (
         <div>
-          {/* ORDERS TAB */}
-          {activeTab === 'orders' && (
+          {(() => {
+            const getPaginationData = (items) => {
+              const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage));
+              const currentItems = items.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+              return { totalPages, currentItems };
+            };
+            const { totalPages: orderPages, currentItems: pagedOrders } = getPaginationData(orders);
+            const { totalPages: customerPages, currentItems: pagedCustomers } = getPaginationData(customers);
+            const { totalPages: couponPages, currentItems: pagedCoupons } = getPaginationData(coupons);
+
+            const renderPagination = (totalPages) => {
+              if (totalPages <= 1) return null;
+              return (
+                <div className="flex justify-center items-center gap-2 mt-6 pb-2">
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <span className="text-sm text-gray-600 font-medium">Trang {currentPage} / {totalPages}</span>
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+              );
+            };
+
+            return (
+              <>
+                {/* ORDERS TAB */}
+                {activeTab === 'orders' && (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -281,7 +325,7 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map(o => (
+                  {pagedOrders.map(o => (
                     <tr key={o._id} className="border-b hover:bg-gray-50">
                       <td className="p-3 font-mono text-xs">{o._id}</td>
                       <td className="p-3">
@@ -302,11 +346,12 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                       </td>
                     </tr>
                   ))}
-                  {orders.length === 0 && (
+                  {pagedOrders.length === 0 && (
                     <tr><td colSpan="5" className="p-6 text-center text-gray-500">Chưa có đơn hàng nào</td></tr>
                   )}
                 </tbody>
               </table>
+              {renderPagination(orderPages)}
             </div>
           )}
 
@@ -335,8 +380,8 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                     </tr>
                   </thead>
                   <tbody>
-                    {Array.isArray(customers) && customers.length > 0 ? (
-                      customers.map((customer, index) => (
+                    {Array.isArray(pagedCustomers) && pagedCustomers.length > 0 ? (
+                      pagedCustomers.map((customer, index) => (
                         <tr key={customer?._id || index} className="border-b hover:bg-gray-50">
                           <td className="p-3 font-bold">
                             {customer?.full_name || customer?.name || "Khách hàng chưa đặt tên"}
@@ -364,6 +409,7 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                     )}
                   </tbody>
                 </table>
+                {renderPagination(customerPages)}
               </div>
             </div>
           )}
@@ -417,7 +463,7 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                     </tr>
                   </thead>
                   <tbody>
-                    {coupons.map(c => (
+                    {pagedCoupons.map(c => (
                       <tr key={c._id} className="border-b">
                         <td className="p-3 font-mono font-bold text-lg text-brand-primary">{c.code}</td>
                         <td className="p-3 text-right font-bold">{c.discount_value.toLocaleString('vi-VN')} đ</td>
@@ -436,12 +482,16 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                     ))}
                   </tbody>
                 </table>
+                {renderPagination(couponPages)}
               </div>
             </div>
           )}
 
           {/* DEVICES TAB */}
           {activeTab === 'devices' && <DeviceManager />}
+              </>
+            );
+          })()}
         </div>
       )}
 
