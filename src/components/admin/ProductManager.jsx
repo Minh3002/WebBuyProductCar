@@ -221,34 +221,84 @@ export default function ProductManager({ onProductsChanged }) {
     }
   };
 
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(visibleProducts.map(p => p._id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectRow = (id) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(selectedId => selectedId !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} sản phẩm đã chọn không?`)) {
+      try {
+        await axiosClient.post('/products/bulk-delete', { ids: selectedIds });
+        setSelectedIds([]);
+        await fetchProducts();
+        onProductsChanged?.();
+      } catch (err) {
+        console.error('Failed to bulk delete', err);
+      }
+    }
+  };
+
   return (
     <div>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
-        <div className="relative flex-1 max-w-md">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={searchTerm}
-            onChange={(event) => {
-              setSearchTerm(event.target.value);
-              setPage(1);
-            }}
-            className="w-full pl-10 pr-3 py-2 border rounded-lg outline-none focus:border-brand-primary"
-            placeholder="Tìm theo tên, OEM, thương hiệu..."
-          />
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          {selectedIds.length > 0 && (
+            <button 
+              onClick={handleBulkDelete}
+              className="px-3 py-2 bg-red-600 text-white font-semibold text-sm rounded-lg hover:bg-red-700 transition flex items-center gap-2 shadow-sm whitespace-nowrap"
+            >
+              <Trash2 size={16} />
+              Xóa ({selectedIds.length})
+            </button>
+          )}
+          <div className="relative flex-1 max-w-md w-full">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={searchTerm}
+              onChange={(event) => {
+                setSearchTerm(event.target.value);
+                setPage(1);
+              }}
+              className="w-full pl-10 pr-3 py-2 border rounded-lg outline-none focus:border-brand-primary"
+              placeholder="Tìm theo tên, OEM..."
+            />
+          </div>
         </div>
 
         <button
           onClick={openCreateModal}
-          className="bg-brand-primary text-white font-bold px-4 py-2 rounded-lg shadow hover:bg-red-600 transition inline-flex items-center justify-center gap-2"
+          className="bg-brand-primary text-white font-bold px-4 py-2 rounded-lg shadow hover:bg-red-600 transition inline-flex items-center justify-center gap-2 whitespace-nowrap"
         >
           <Plus size={18} /> Thêm sản phẩm
         </button>
       </div>
 
       <div className="overflow-x-auto border rounded-lg">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full text-left border-collapse min-w-[800px]">
           <thead>
             <tr className="bg-gray-100 text-sm">
+              <th className="p-3 border text-center w-10">
+                <input 
+                  type="checkbox" 
+                  className="w-4 h-4 cursor-pointer"
+                  checked={visibleProducts.length > 0 && selectedIds.length === visibleProducts.length}
+                  onChange={handleSelectAll}
+                />
+              </th>
               <th className="p-3 border">Ảnh</th>
               <th className="p-3 border">Sản phẩm</th>
               <th className="p-3 border">OEM</th>
@@ -260,20 +310,28 @@ export default function ProductManager({ onProductsChanged }) {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan="6" className="p-8 text-center text-gray-500">
+                <td colSpan="7" className="p-8 text-center text-gray-500">
                   Đang tải sản phẩm...
                 </td>
               </tr>
             ) : visibleProducts.length === 0 ? (
               <tr>
-                <td colSpan="6" className="p-8 text-center text-gray-500">
-                  Không có sản phẩm phù hợp.
+                <td colSpan="7" className="p-8 text-center text-gray-500">
+                  Không tìm thấy sản phẩm nào.
                 </td>
               </tr>
             ) : (
               visibleProducts.map((product) => (
-                <tr key={product._id} className="border-b hover:bg-gray-50">
-                  <td className="p-3 border">
+                <tr key={product._id} className={`border-b hover:bg-gray-50 text-sm ${selectedIds.includes(product._id) ? 'bg-blue-50/50' : ''}`}>
+                  <td className="p-3 text-center border">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 cursor-pointer"
+                      checked={selectedIds.includes(product._id)}
+                      onChange={() => handleSelectRow(product._id)}
+                    />
+                  </td>
+                  <td className="p-3 border w-24">
                     <img
                       src={resolveMediaUrl(product.images?.[0] || product.image_url)}
                       alt={product.title}

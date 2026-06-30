@@ -49,4 +49,12 @@ export class CustomersController {
   remove(@Param('id') id: string) {
     return this.customersService.remove(id);
   }
+
+  @Post('bulk-delete')
+  bulkDelete(@Body() body: { ids: string[] }) {
+    if (!body.ids || !Array.isArray(body.ids)) {
+      return { success: false, message: 'Invalid data' };
+    }
+    return this.customersService.bulkDelete(body.ids);
+  }
 }

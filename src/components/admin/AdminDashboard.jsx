@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import axiosClient from '../../api/axiosClient';
 import ProductManager from './ProductManager';
 import DeviceManager from './DeviceManager';
@@ -253,6 +253,44 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
     }
   };
 
+  // ---- BULK DELETE ----
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState([]);
+  const [selectedCouponIds, setSelectedCouponIds] = useState([]);
+
+  const handleBulkDeleteOrders = async () => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedOrderIds.length} đơn hàng đã chọn không?`)) return;
+    try {
+      await axiosClient.post('/orders/bulk-delete', { ids: selectedOrderIds });
+      setSelectedOrderIds([]);
+      fetchData('orders');
+    } catch (err) {
+      alert('Lỗi xóa đơn hàng');
+    }
+  };
+
+  const handleBulkDeleteCustomers = async () => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedCustomerIds.length} khách hàng đã chọn không?`)) return;
+    try {
+      await axiosClient.post('/customers/bulk-delete', { ids: selectedCustomerIds });
+      setSelectedCustomerIds([]);
+      fetchData('customers');
+    } catch (err) {
+      alert('Lỗi xóa khách hàng');
+    }
+  };
+
+  const handleBulkDeleteCoupons = async () => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedCouponIds.length} mã giảm giá đã chọn không?`)) return;
+    try {
+      await axiosClient.post('/coupons/bulk-delete', { ids: selectedCouponIds });
+      setSelectedCouponIds([]);
+      fetchData('coupons');
+    } catch (err) {
+      alert('Lỗi xóa mã giảm giá');
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-[#E5E5E5] p-6 max-w-6xl mx-auto relative">
       <div className="flex justify-between items-center mb-6">
@@ -314,9 +352,31 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                 {/* ORDERS TAB */}
                 {activeTab === 'orders' && (
             <div className="overflow-x-auto">
+              {selectedOrderIds.length > 0 && (
+                <div className="mb-4">
+                  <button 
+                    onClick={handleBulkDeleteOrders}
+                    className="px-3 py-2 bg-red-600 text-white font-semibold text-sm rounded-lg hover:bg-red-700 transition flex items-center gap-2 shadow-sm"
+                  >
+                    <Trash2 size={16} />
+                    Xóa mục đã chọn ({selectedOrderIds.length})
+                  </button>
+                </div>
+              )}
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-100">
+                    <th className="p-3 border text-center w-10">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 cursor-pointer"
+                        checked={pagedOrders.length > 0 && selectedOrderIds.length === pagedOrders.length}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedOrderIds(pagedOrders.map(o => o._id));
+                          else setSelectedOrderIds([]);
+                        }}
+                      />
+                    </th>
                     <th className="p-3 border">Mã Đơn</th>
                     <th className="p-3 border">Khách hàng</th>
                     <th className="p-3 border text-center">Trạng thái</th>
@@ -326,7 +386,18 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                 </thead>
                 <tbody>
                   {pagedOrders.map(o => (
-                    <tr key={o._id} className="border-b hover:bg-gray-50">
+                    <tr key={o._id} className={`border-b hover:bg-gray-50 ${selectedOrderIds.includes(o._id) ? 'bg-blue-50/50' : ''}`}>
+                      <td className="p-3 text-center border">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 cursor-pointer"
+                          checked={selectedOrderIds.includes(o._id)}
+                          onChange={() => {
+                            if (selectedOrderIds.includes(o._id)) setSelectedOrderIds(selectedOrderIds.filter(id => id !== o._id));
+                            else setSelectedOrderIds([...selectedOrderIds, o._id]);
+                          }}
+                        />
+                      </td>
                       <td className="p-3 font-mono text-xs">{o._id}</td>
                       <td className="p-3">
                         <p className="font-bold">{o.customer_name}</p>
@@ -347,7 +418,7 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                     </tr>
                   ))}
                   {pagedOrders.length === 0 && (
-                    <tr><td colSpan="5" className="p-6 text-center text-gray-500">Chưa có đơn hàng nào</td></tr>
+                    <tr><td colSpan="6" className="p-6 text-center text-gray-500">Chưa có đơn hàng nào</td></tr>
                   )}
                 </tbody>
               </table>
@@ -363,7 +434,18 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
           {/* CUSTOMERS TAB */}
           {activeTab === 'customers' && (
             <div>
-              <div className="flex justify-end mb-4">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  {selectedCustomerIds.length > 0 && (
+                    <button 
+                      onClick={handleBulkDeleteCustomers}
+                      className="px-3 py-2 bg-red-600 text-white font-semibold text-sm rounded-lg hover:bg-red-700 transition flex items-center gap-2 shadow-sm"
+                    >
+                      <Trash2 size={16} />
+                      Xóa mục đã chọn ({selectedCustomerIds.length})
+                    </button>
+                  )}
+                </div>
                 <button onClick={openAddCustomer} className="bg-brand-primary text-white font-bold px-4 py-2 rounded shadow hover:bg-red-600 transition">
                   + Thêm khách hàng mới
                 </button>
@@ -372,6 +454,17 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-gray-100">
+                      <th className="p-3 border text-center w-10">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 cursor-pointer"
+                          checked={pagedCustomers.length > 0 && selectedCustomerIds.length === pagedCustomers.length}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedCustomerIds(pagedCustomers.map(c => c._id));
+                            else setSelectedCustomerIds([]);
+                          }}
+                        />
+                      </th>
                       <th className="p-3 border">Họ và tên</th>
                       <th className="p-3 border">Số điện thoại</th>
                       <th className="p-3 border">Email</th>
@@ -382,7 +475,18 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                   <tbody>
                     {Array.isArray(pagedCustomers) && pagedCustomers.length > 0 ? (
                       pagedCustomers.map((customer, index) => (
-                        <tr key={customer?._id || index} className="border-b hover:bg-gray-50">
+                        <tr key={customer?._id || index} className={`border-b hover:bg-gray-50 ${selectedCustomerIds.includes(customer?._id) ? 'bg-blue-50/50' : ''}`}>
+                          <td className="p-3 text-center border">
+                            <input 
+                              type="checkbox" 
+                              className="w-4 h-4 cursor-pointer"
+                              checked={selectedCustomerIds.includes(customer?._id)}
+                              onChange={() => {
+                                if (selectedCustomerIds.includes(customer?._id)) setSelectedCustomerIds(selectedCustomerIds.filter(id => id !== customer?._id));
+                                else setSelectedCustomerIds([...selectedCustomerIds, customer?._id]);
+                              }}
+                            />
+                          </td>
                           <td className="p-3 font-bold">
                             {customer?.full_name || customer?.name || "Khách hàng chưa đặt tên"}
                             {customer?.role === 'admin' && <span className="ml-2 bg-brand-dark text-white text-[10px] px-1 py-0.5 rounded">ADMIN</span>}
@@ -397,15 +501,13 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                             {customer?.address || "---"}
                           </td>
                           <td className="p-3 text-center space-x-2">
-                            <button onClick={() => openEditCustomer(customer)} className="bg-blue-500 text-white px-3 py-1 rounded text-xs font-bold hover:bg-blue-600">Sửa</button>
-                            {customer?.role !== 'admin' && (
-                              <button onClick={() => handleDeleteCustomer(customer?._id)} className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold hover:bg-red-600">Xóa</button>
-                            )}
+                            <button onClick={() => openEditCustomer(customer)} className="text-blue-500 hover:text-blue-700 font-bold px-2 py-1">Sửa</button>
+                            <button onClick={() => handleDeleteCustomer(customer._id)} className="text-red-500 hover:text-red-700 font-bold px-2 py-1">Xóa</button>
                           </td>
                         </tr>
                       ))
                     ) : (
-                      <tr><td colSpan="5" className="p-6 text-center text-gray-500">Không có dữ liệu khách hàng hoặc đang tải...</td></tr>
+                      <tr><td colSpan="6" className="p-6 text-center text-gray-500">Chưa có khách hàng nào</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -447,15 +549,39 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
           {/* COUPONS TAB */}
           {activeTab === 'coupons' && (
             <div>
-              <form onSubmit={handleCreateCoupon} className="flex flex-col sm:flex-row gap-4 mb-6 bg-gray-50 p-4 rounded border">
-                <input required name="code" type="text" placeholder="Nhập mã (VD: VUIHE)" className="p-2 border rounded uppercase font-mono flex-1" />
-                <input required name="val" type="number" placeholder="Số tiền giảm (VND)" className="p-2 border rounded flex-1" />
-                <button type="submit" className="bg-brand-dark text-white px-4 py-2 rounded font-bold hover:bg-black">Tạo Mã</button>
-              </form>
+              <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <form onSubmit={handleCreateCoupon} className="flex-1 flex gap-4 bg-gray-50 p-4 rounded border">
+                  <input required name="code" type="text" placeholder="Nhập mã (VD: VUIHE)" className="p-2 border rounded uppercase font-mono flex-1" />
+                  <input required name="val" type="number" placeholder="Số tiền giảm (VND)" className="p-2 border rounded flex-1" />
+                  <button type="submit" className="bg-brand-dark text-white px-4 py-2 rounded font-bold hover:bg-black">Tạo Mã</button>
+                </form>
+                {selectedCouponIds.length > 0 && (
+                  <div className="flex items-center">
+                    <button 
+                      onClick={handleBulkDeleteCoupons}
+                      className="px-4 py-2 bg-red-600 text-white font-semibold rounded hover:bg-red-700 transition flex items-center gap-2 shadow-sm whitespace-nowrap h-full"
+                    >
+                      <Trash2 size={16} />
+                      Xóa mục đã chọn ({selectedCouponIds.length})
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-gray-100">
+                      <th className="p-3 border text-center w-10">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 cursor-pointer"
+                          checked={pagedCoupons.length > 0 && selectedCouponIds.length === pagedCoupons.length}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedCouponIds(pagedCoupons.map(c => c._id));
+                            else setSelectedCouponIds([]);
+                          }}
+                        />
+                      </th>
                       <th className="p-3 border">Mã Giảm Giá</th>
                       <th className="p-3 border text-right">Giá trị giảm</th>
                       <th className="p-3 border text-center">Trạng thái</th>
@@ -464,7 +590,18 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                   </thead>
                   <tbody>
                     {pagedCoupons.map(c => (
-                      <tr key={c._id} className="border-b">
+                      <tr key={c._id} className={`border-b ${selectedCouponIds.includes(c._id) ? 'bg-blue-50/50' : ''}`}>
+                        <td className="p-3 text-center border">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 cursor-pointer"
+                            checked={selectedCouponIds.includes(c._id)}
+                            onChange={() => {
+                              if (selectedCouponIds.includes(c._id)) setSelectedCouponIds(selectedCouponIds.filter(id => id !== c._id));
+                              else setSelectedCouponIds([...selectedCouponIds, c._id]);
+                            }}
+                          />
+                        </td>
                         <td className="p-3 font-mono font-bold text-lg text-brand-primary">{c.code}</td>
                         <td className="p-3 text-right font-bold">{c.discount_value.toLocaleString('vi-VN')} đ</td>
                         <td className="p-3 text-center">

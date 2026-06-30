@@ -52,11 +52,50 @@ export default function DeviceManager() {
     }
   };
 
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(logs.map(log => log._id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectRow = (id) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(selectedId => selectedId !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} mục đã chọn không?`)) {
+      try {
+        await axiosClient.post('/admin/access-logs/bulk-delete', { ids: selectedIds });
+        setSelectedIds([]);
+        fetchLogs();
+      } catch (err) {
+        console.error('Failed to bulk delete', err);
+      }
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg border border-gray-200">
       <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-lg">
         <h3 className="font-bold text-lg text-gray-800">Chi tiết thiết bị & vị trí truy cập</h3>
         <div className="flex gap-3 items-center">
+          {selectedIds.length > 0 && (
+            <button 
+              onClick={handleBulkDelete}
+              className="px-3 py-1.5 bg-red-600 text-white font-semibold text-sm rounded hover:bg-red-700 transition-colors shadow-sm flex items-center gap-1"
+            >
+              <Trash2 size={16} />
+              Xóa mục đã chọn ({selectedIds.length})
+            </button>
+          )}
           <div className="px-3 py-1.5 bg-brand-dark text-white rounded text-sm font-bold shadow-sm">
             TẤT CẢ THIẾT BỊ
           </div>
@@ -74,7 +113,7 @@ export default function DeviceManager() {
             Xóa tất cả
           </button>
           <button 
-            onClick={() => { setPage(1); fetchLogs(); }}
+            onClick={() => { setPage(1); fetchLogs(); setSelectedIds([]); }}
             className="p-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
             title="Làm mới"
           >
@@ -87,6 +126,14 @@ export default function DeviceManager() {
         <table className="w-full text-left border-collapse min-w-[800px]">
           <thead>
             <tr className="bg-gray-100 text-gray-600 text-sm">
+              <th className="p-3 border-b text-center w-10">
+                <input 
+                  type="checkbox" 
+                  className="w-4 h-4 cursor-pointer"
+                  checked={logs.length > 0 && selectedIds.length === logs.length}
+                  onChange={handleSelectAll}
+                />
+              </th>
               <th className="p-3 border-b font-semibold text-center w-12">Loại</th>
               <th className="p-3 border-b font-semibold">Thiết bị / OS / Trình duyệt</th>
               <th className="p-3 border-b font-semibold">Địa chỉ IP</th>
@@ -100,15 +147,23 @@ export default function DeviceManager() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan="8" className="p-8 text-center text-gray-500">Đang tải dữ liệu...</td>
+                <td colSpan="10" className="p-8 text-center text-gray-500">Đang tải dữ liệu...</td>
               </tr>
             ) : logs.length === 0 ? (
               <tr>
-                <td colSpan="8" className="p-8 text-center text-gray-500">Không có dữ liệu truy cập</td>
+                <td colSpan="10" className="p-8 text-center text-gray-500">Không có dữ liệu truy cập</td>
               </tr>
             ) : (
               logs.map((log) => (
-                <tr key={log._id} className="border-b hover:bg-gray-50 text-sm">
+                <tr key={log._id} className={`border-b hover:bg-gray-50 text-sm ${selectedIds.includes(log._id) ? 'bg-blue-50/50' : ''}`}>
+                  <td className="p-3 text-center">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 cursor-pointer"
+                      checked={selectedIds.includes(log._id)}
+                      onChange={() => handleSelectRow(log._id)}
+                    />
+                  </td>
                   <td className="p-3 text-center text-gray-500">
                     {log.deviceType === 'Mobile' ? <Smartphone size={20} className="mx-auto" /> : <Laptop size={20} className="mx-auto" />}
                   </td>

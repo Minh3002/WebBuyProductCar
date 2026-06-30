@@ -34,4 +34,13 @@ export class CouponsController {
   remove(@Param('id') id: string) {
     return this.couponsService.remove(id);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('bulk-delete')
+  bulkDelete(@Body() body: { ids: string[] }) {
+    if (!body.ids || !Array.isArray(body.ids)) {
+      return { success: false, message: 'Invalid data' };
+    }
+    return this.couponsService.bulkDelete(body.ids);
+  }
 }

@@ -105,4 +105,13 @@ export class ProductsController {
   remove(@Param('id') id: string) {
     return this.productsService.remove(id);
   }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Post('bulk-delete')
+  bulkDelete(@Body() body: { ids: string[] }) {
+    if (!body.ids || !Array.isArray(body.ids)) {
+      return { message: 'Invalid data' };
+    }
+    return this.productsService.bulkDelete(body.ids);
+  }
 }

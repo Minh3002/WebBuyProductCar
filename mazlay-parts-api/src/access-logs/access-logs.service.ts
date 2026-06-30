@@ -73,4 +73,14 @@ export class AccessLogsService {
       return { success: false };
     }
   }
+
+  async bulkDelete(ids: string[]): Promise<{ success: boolean; deletedCount: number }> {
+    try {
+      const result = await this.accessLogModel.deleteMany({ _id: { $in: ids as any[] } }).exec();
+      return { success: true, deletedCount: result.deletedCount };
+    } catch (error) {
+      this.logger.error('Failed to bulk delete access logs', error);
+      return { success: false, deletedCount: 0 };
+    }
+  }
 }

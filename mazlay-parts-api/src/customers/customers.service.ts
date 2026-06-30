@@ -93,6 +93,11 @@ export class CustomersService {
     return { success: true };
   }
 
+  async bulkDelete(ids: string[]): Promise<any> {
+    const result = await this.customerModel.deleteMany({ _id: { $in: ids as any[] } }).exec();
+    return { success: true, message: 'Xóa hàng loạt thành công', deletedCount: result.deletedCount };
+  }
+
   private async linkExistingOrdersToCustomer(customer: CustomerDocument) {
     const identifiers = [
       customer._id?.toString(),

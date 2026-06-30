@@ -119,4 +119,9 @@ export class ProductsService {
     if (!deletedProduct) throw new NotFoundException('Sản phẩm không tồn tại');
     return { message: 'Xóa thành công', id };
   }
+
+  async bulkDelete(ids: string[]): Promise<any> {
+    const result = await this.productModel.deleteMany({ _id: { $in: ids as any[] } }).exec();
+    return { message: 'Xóa hàng loạt thành công', deletedCount: result.deletedCount };
+  }
 }

@@ -35,4 +35,9 @@ export class CouponsService {
     if (!coupon) throw new BadRequestException('Mã giảm giá không hợp lệ hoặc đã hết hạn');
     return coupon;
   }
+
+  async bulkDelete(ids: string[]): Promise<any> {
+    const result = await this.couponModel.deleteMany({ _id: { $in: ids as any[] } }).exec();
+    return { success: true, message: 'Xóa hàng loạt thành công', deletedCount: result.deletedCount };
+  }
 }

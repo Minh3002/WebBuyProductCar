@@ -70,4 +70,13 @@ export class OrdersController {
   updateStatus(@Param('id') id: string, @Body('status') status: string) {
     return this.ordersService.updateStatus(id, status);
   }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Post('bulk-delete')
+  bulkDelete(@Body() body: { ids: string[] }) {
+    if (!body.ids || !Array.isArray(body.ids)) {
+      return { message: 'Invalid data' };
+    }
+    return this.ordersService.bulkDelete(body.ids);
+  }
 }

@@ -422,4 +422,9 @@ export class OrdersService {
       html: htmlContent,
     });
   }
+
+  async bulkDelete(ids: string[]): Promise<{ message: string; deletedCount: number }> {
+    const result = await this.orderModel.deleteMany({ _id: { $in: ids as any[] } }).exec();
+    return { message: 'Xóa hàng loạt thành công', deletedCount: result.deletedCount };
+  }
 }
