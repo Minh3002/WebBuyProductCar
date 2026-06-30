@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Trash2, TrendingUp, DollarSign, Users, ShoppingBag, Award } from 'lucide-react';
 import axiosClient from '../../api/axiosClient';
 import ProductManager from './ProductManager';
 import DeviceManager from './DeviceManager';
@@ -517,34 +517,114 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
           )}
 
           {/* ANALYTICS TAB */}
-          {activeTab === 'analytics' && (
-            <div>
-              <h3 className="font-bold text-lg mb-4">Top Sản Phẩm Bán Chạy Nhất (Đã hoàn thành)</h3>
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="p-3 border text-center">Top</th>
-                    <th className="p-3 border">Sản phẩm</th>
-                    <th className="p-3 border text-center">Số lượng bán</th>
-                    <th className="p-3 border text-right">Doanh thu mang lại</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topProducts.map((p, idx) => (
-                    <tr key={p._id} className="border-b hover:bg-gray-50">
-                      <td className="p-3 text-center font-bold text-xl text-gray-400">#{idx + 1}</td>
-                      <td className="p-3 font-bold">{p.title} <br/><span className="text-xs font-mono text-gray-500">{p.oem_code}</span></td>
-                      <td className="p-3 text-center font-bold text-brand-primary text-lg">{p.total_quantity}</td>
-                      <td className="p-3 text-right font-bold">{p.total_revenue.toLocaleString('vi-VN')} đ</td>
-                    </tr>
-                  ))}
-                  {topProducts.length === 0 && (
-                    <tr><td colSpan="4" className="p-6 text-center text-gray-500">Chưa có đủ dữ liệu thống kê (Hãy thử duyệt đơn)</td></tr>
+          {activeTab === 'analytics' && (() => {
+            const completedOrders = orders.filter(o => ['Đã duyệt', 'Đang giao', 'Hoàn thành'].includes(o.status));
+            const totalRevenue = completedOrders.reduce((sum, o) => sum + o.total_amount, 0);
+            const totalOrdersCount = orders.length;
+            const totalCustomersCount = customers.length;
+            const activeCouponsCount = coupons.filter(c => c.isActive).length;
+            const maxTopQty = topProducts.length > 0 ? Math.max(...topProducts.map(p => p.total_quantity)) : 1;
+
+            return (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group transition-all hover:-translate-y-1 hover:shadow-xl">
+                    <div className="relative z-10">
+                      <p className="text-blue-100 text-xs font-bold mb-1 uppercase tracking-wider">Tổng Doanh Thu</p>
+                      <h3 className="text-3xl font-bold truncate">{totalRevenue.toLocaleString('vi-VN')} đ</h3>
+                    </div>
+                    <DollarSign size={80} className="absolute -right-4 -bottom-4 text-white opacity-20 group-hover:scale-110 transition-transform duration-500" />
+                  </div>
+
+                  <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group transition-all hover:-translate-y-1 hover:shadow-xl">
+                    <div className="relative z-10">
+                      <p className="text-emerald-100 text-xs font-bold mb-1 uppercase tracking-wider">Đơn Hàng Mới</p>
+                      <h3 className="text-3xl font-bold">{totalOrdersCount}</h3>
+                    </div>
+                    <ShoppingBag size={80} className="absolute -right-4 -bottom-4 text-white opacity-20 group-hover:scale-110 transition-transform duration-500" />
+                  </div>
+
+                  <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group transition-all hover:-translate-y-1 hover:shadow-xl">
+                    <div className="relative z-10">
+                      <p className="text-purple-100 text-xs font-bold mb-1 uppercase tracking-wider">Khách Hàng</p>
+                      <h3 className="text-3xl font-bold">{totalCustomersCount}</h3>
+                    </div>
+                    <Users size={80} className="absolute -right-4 -bottom-4 text-white opacity-20 group-hover:scale-110 transition-transform duration-500" />
+                  </div>
+
+                  <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group transition-all hover:-translate-y-1 hover:shadow-xl">
+                    <div className="relative z-10">
+                      <p className="text-orange-100 text-xs font-bold mb-1 uppercase tracking-wider">Khuyến mãi (Active)</p>
+                      <h3 className="text-3xl font-bold">{activeCouponsCount}</h3>
+                    </div>
+                    <Award size={80} className="absolute -right-4 -bottom-4 text-white opacity-20 group-hover:scale-110 transition-transform duration-500" />
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="p-6 border-b border-gray-100 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
+                      <TrendingUp className="text-brand-primary" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-xl text-gray-800">Top Sản Phẩm Bán Chạy</h3>
+                      <p className="text-sm text-gray-500">Xếp hạng theo số lượng đã bán</p>
+                    </div>
+                  </div>
+                  
+                  {topProducts.length === 0 ? (
+                    <div className="p-16 text-center text-gray-500">
+                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-50 mb-4">
+                        <ShoppingBag size={32} className="text-gray-300" />
+                      </div>
+                      <p className="text-lg font-medium text-gray-700 mb-1">Chưa có đủ dữ liệu thống kê</p>
+                      <p className="text-sm">Hãy duyệt hoặc hoàn thành các đơn hàng để hệ thống ghi nhận.</p>
+                    </div>
+                  ) : (
+                    <div className="p-0 overflow-x-auto">
+                      <div className="min-w-[700px]">
+                        <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50/80 border-b text-xs font-bold text-gray-500 uppercase tracking-wider">
+                          <div className="col-span-1 text-center">Hạng</div>
+                          <div className="col-span-5">Sản phẩm</div>
+                          <div className="col-span-3 text-center">Số lượng bán</div>
+                          <div className="col-span-3 text-right pr-4">Doanh thu</div>
+                        </div>
+                        
+                        <div className="divide-y divide-gray-100">
+                          {topProducts.map((p, idx) => (
+                            <div key={p._id} className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-gray-50 transition-colors">
+                              <div className="col-span-1 flex justify-center">
+                                <span className={`w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm ${idx === 0 ? 'bg-yellow-100 text-yellow-600 ring-4 ring-yellow-50' : idx === 1 ? 'bg-gray-200 text-gray-600 ring-4 ring-gray-50' : idx === 2 ? 'bg-orange-100 text-orange-600 ring-4 ring-orange-50' : 'bg-gray-50 text-gray-400'}`}>
+                                  {idx + 1}
+                                </span>
+                              </div>
+                              <div className="col-span-5 pr-4">
+                                <p className="font-bold text-gray-800 line-clamp-2 text-sm leading-tight mb-1">{p.title}</p>
+                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                                  OEM: {p.oem_code}
+                                </span>
+                              </div>
+                              <div className="col-span-3">
+                                <div className="flex flex-col gap-1.5 items-center">
+                                  <span className="font-bold text-lg text-brand-primary leading-none">{p.total_quantity}</span>
+                                  <div className="w-full bg-gray-100 rounded-full h-1.5 max-w-[140px] overflow-hidden">
+                                    <div className="bg-gradient-to-r from-red-500 to-brand-primary h-1.5 rounded-full relative" style={{ width: `${Math.max(2, (p.total_quantity / maxTopQty) * 100)}%` }}></div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="col-span-3 text-right pr-4">
+                                <p className="font-bold text-gray-800">{p.total_revenue.toLocaleString('vi-VN')} đ</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   )}
-                </tbody>
-              </table>
-            </div>
-          )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* COUPONS TAB */}
           {activeTab === 'coupons' && (
