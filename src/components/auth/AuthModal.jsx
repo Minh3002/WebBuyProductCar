@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import axiosClient from '../../api/axiosClient';
+import { notifySuccess } from '../../utils/alerts';
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const [isLoginView, setIsLoginView] = useState(true);
@@ -43,7 +44,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           password: formData.password,
           address: formData.address
         });
-        alert('Đăng ký thành công! Vui lòng đăng nhập.');
+        notifySuccess('Đăng ký thành công! Vui lòng đăng nhập.');
         setIsLoginView(true);
       }
     } catch (err) {
@@ -176,3 +177,4 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     </div>
   );
 }
+

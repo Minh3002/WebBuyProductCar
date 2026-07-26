@@ -1,4 +1,4 @@
-export const CATEGORIES = ["Tất cả", "Bảo dưỡng", "Hệ thống gầm", "Điện - Điều hòa", "Thân vỏ"];
+﻿export const CATEGORIES = ["Tất cả", "Bảo dưỡng", "Hệ thống gầm", "Điện - Điều hòa", "Thân vỏ"];
 
 export const FILTER_OPTIONS = {
   years: ["2019", "2020", "2021", "2022"],

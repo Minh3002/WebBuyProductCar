@@ -1,20 +1,26 @@
-import React from 'react';
-import { MessageCircle, ShoppingBag, Copy } from 'lucide-react';
+﻿import React from 'react';
+import { MessageCircle, ShoppingBag, Copy, GitCompare } from 'lucide-react';
 import { getProductImage, resolveMediaUrl } from '../../utils/media';
 import { motion } from 'framer-motion';
+import { notifySuccess } from '../../utils/alerts';
 
-export default function ProductCard({ product, onSelect, onQuickBuy }) {
+export default function ProductCard({ product, onSelect, onQuickBuy, isCompared = false, onToggleCompare }) {
   const isAvailable = Number(product.stock_quantity || 0) > 0;
 
   const handleCopyOEM = (e, oem) => {
     e.stopPropagation(); // Ngăn click lan ra thẻ Card
     navigator.clipboard.writeText(oem);
-    alert(`Đã copy mã OEM: ${oem}`);
+    notifySuccess(`Đã copy mã OEM: ${oem}`);
   };
 
   const handleQuickBuy = (e) => {
     e.stopPropagation();
     onQuickBuy(product);
+  };
+
+  const handleToggleCompare = (e) => {
+    e.stopPropagation();
+    onToggleCompare?.(product);
   };
 
   return (
@@ -94,6 +100,19 @@ export default function ProductCard({ product, onSelect, onQuickBuy }) {
             <ShoppingBag size={14} /> {isAvailable ? 'Mua ngay' : 'Hết hàng'}
           </button>
           
+          <button
+            type="button"
+            onClick={handleToggleCompare}
+            className={`w-10 sm:w-11 flex items-center justify-center rounded border transition-colors duration-200 ${
+              isCompared
+                ? 'bg-[#111111] border-[#111111] text-white'
+                : 'bg-white border-neutral-200 text-neutral-600 hover:border-[#FF2F2F] hover:text-[#FF2F2F]'
+            }`}
+            title={isCompared ? 'Bỏ so sánh' : 'So sánh'}
+          >
+            <GitCompare size={16} />
+          </button>
+
           <a 
             href="https://zalo.me"
             target="_blank"
@@ -109,3 +128,4 @@ export default function ProductCard({ product, onSelect, onQuickBuy }) {
     </motion.div>
   );
 }
+

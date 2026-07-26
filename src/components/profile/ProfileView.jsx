@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { User, Mail, Phone, MapPin, Save, ShieldCheck } from 'lucide-react';
+import { notifyInfo } from '../../utils/alerts';
 
 export default function ProfileView({ user, setUser, onBack }) {
   const [formData, setFormData] = useState({
@@ -63,7 +64,7 @@ export default function ProfileView({ user, setUser, onBack }) {
       const response = await axiosClient.put('/customers/profile', formData);
       
       if (response.requireRelogin) {
-        alert("Bạn đã thay đổi số điện thoại định danh. Vui lòng đăng nhập lại!");
+        await notifyInfo('Bạn đã thay đổi số điện thoại định danh. Vui lòng đăng nhập lại.');
         localStorage.removeItem('user');
         localStorage.removeItem('token');
         if (setUser) setUser(null);
@@ -201,3 +202,4 @@ export default function ProfileView({ user, setUser, onBack }) {
     </div>
   );
 }
+

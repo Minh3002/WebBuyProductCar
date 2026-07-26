@@ -18,7 +18,17 @@
   }
 
   body {
-    @apply bg-[#F8F9FA] text-[#222222] transition-colors duration-300 dark:bg-[#0B0F14] dark:text-neutral-100;
+    @apply bg-[#F8F9FA] text-[#222222] font-sans antialiased transition-colors duration-300 dark:bg-[#0B0F14] dark:text-neutral-100;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    text-rendering: optimizeLegibility;
+  }
+
+  button,
+  input,
+  select,
+  textarea,
+  table {
+    font: inherit;
   }
 
   input,

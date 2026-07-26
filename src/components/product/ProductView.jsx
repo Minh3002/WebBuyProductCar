@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, MessageCircle, PhoneCall, ShoppingCart, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, MessageCircle, PhoneCall, ShoppingCart, ShieldCheck, CheckCircle2, GitCompare } from 'lucide-react';
 import axiosClient from '../../api/axiosClient';
 import { getProductImage, resolveMediaUrl } from '../../utils/media';
+import RecentlyViewed from './RecentlyViewed';
 
-export default function ProductView({ productId, onBack, onAddToCart }) {
+export default function ProductView({ productId, onBack, onAddToCart, onSelectProduct, isCompared = false, onToggleCompare, fallbackProduct = null }) {
   const [product, setProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -18,6 +19,11 @@ export default function ProductView({ productId, onBack, onAddToCart }) {
         const response = await axiosClient.get(`/products/${productId}`);
         setProduct(response.data || response);
       } catch (err) {
+        if (fallbackProduct) {
+          console.warn('Using fallback product detail because local API is unavailable:', err);
+          setProduct(fallbackProduct);
+          return;
+        }
         console.error("Lỗi khi tải chi tiết sản phẩm:", err);
         setError("Không thể tải thông tin chi tiết sản phẩm. Vui lòng thử lại sau.");
       } finally {
@@ -26,7 +32,7 @@ export default function ProductView({ productId, onBack, onAddToCart }) {
     };
 
     fetchProduct();
-  }, [productId]);
+  }, [productId, fallbackProduct]);
 
   if (isLoading) {
     return (
@@ -90,7 +96,7 @@ export default function ProductView({ productId, onBack, onAddToCart }) {
               <div className="text-xs text-[#777777] font-medium uppercase tracking-wider mb-1">
                 Mã phụ tùng chuẩn (OEM / Part Number):
               </div>
-              <div className="text-xl font-mono font-bold text-[#111111] select-all">
+              <div className="text-xl font-bold text-[#111111] select-all">
                 {product.oem_code || product.oem}
               </div>
             </div>
@@ -132,9 +138,22 @@ export default function ProductView({ productId, onBack, onAddToCart }) {
             </button>
 
             <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => onToggleCompare?.(product)}
+                className={`border py-3 rounded-lg text-center font-bold text-sm flex items-center justify-center gap-2 transition-colors ${
+                  isCompared
+                    ? 'border-[#111111] bg-[#111111] text-white'
+                    : 'border-neutral-300 bg-white text-[#111111] hover:border-[#FF2F2F] hover:text-[#FF2F2F]'
+                }`}
+              >
+                <GitCompare size={18} /> {isCompared ? 'Bỏ so sánh' : 'So sánh'}
+              </button>
               <a href="https://zalo.me" target="_blank" rel="noopener noreferrer" className="border border-[#0068FF] text-[#0068FF] bg-blue-50/50 hover:bg-blue-50 py-3 rounded-lg text-center font-bold text-sm flex items-center justify-center gap-2 transition-colors">
                 <MessageCircle size={18} /> Chat Tư Vấn Zalo
               </a>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
               <a href="tel:0901000000" className="border border-[#111111] bg-white text-[#111111] hover:bg-neutral-50 py-3 rounded-lg text-center font-bold text-sm flex items-center justify-center gap-2 transition-colors">
                 <PhoneCall size={18} /> Gọi Kỹ Thuật Viên
               </a>
@@ -195,6 +214,8 @@ export default function ProductView({ productId, onBack, onAddToCart }) {
           </div>
         </div>
       </div>
+
+      <RecentlyViewed currentProduct={product} onSelectProduct={onSelectProduct} />
     </div>
   );
 }

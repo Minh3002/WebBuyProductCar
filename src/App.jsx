@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import FilterBox from './components/dashboard/FilterBox';
@@ -12,15 +12,44 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import AiChatWidget from './components/chat/AiChatWidget';
 import SkeletonCard from './components/common/SkeletonCard';
 import RecentPurchaseToast from './components/notifications/RecentPurchaseToast';
+import CompareBar from './components/compare/CompareBar';
+import CompareProducts from './components/compare/CompareProducts';
 import axiosClient from './api/axiosClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import HeroSlider from './components/layout/HeroSlider';
+import { MOCK_PRODUCTS } from './data/mockData';
+import { notifyError, notifySuccess, notifyWarning } from './utils/alerts';
 
 // Helper for Fuzzy Search
 const normalizeString = (str) => {
   if (!str) return '';
   return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '');
 };
+
+const devFallbackProducts = MOCK_PRODUCTS.map((product) => ({
+  ...product,
+  _id: product._id || product.id,
+  oem_code: product.oem_code || product.oem,
+  old_price: product.old_price ?? product.oldPrice ?? 0,
+  stock_quantity: product.stock_quantity ?? (product.inStock || product.in_stock ? 99 : 0),
+  images: product.images || (product.image ? [product.image] : []),
+  compatibility: Array.isArray(product.compatibility)
+    ? product.compatibility
+    : product.compatibility
+      ? [product.compatibility]
+      : [],
+}));
+
+const COMPARE_STORAGE_KEY = 'compareProducts';
+const MAX_COMPARE_PRODUCTS = 3;
+
+const getProductId = (product) => product?._id || product?.id;
+
+const normalizeCompareProduct = (product) => ({
+  ...product,
+  _id: getProductId(product),
+  image_url: product?.images?.[0] || product?.image_url || product?.image || '',
+});
 
 export default function App() {
   const [currentView, setCurrentView] = useState('home'); // 'home', 'detail', 'checkout'
@@ -45,6 +74,16 @@ export default function App() {
   const [authLoaded, setAuthLoaded] = useState(false);
 
   const [allProducts, setAllProducts] = useState([]);
+  const [compareProducts, setCompareProducts] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const storedValue = localStorage.getItem(COMPARE_STORAGE_KEY);
+      const parsedValue = storedValue ? JSON.parse(storedValue) : [];
+      return Array.isArray(parsedValue) ? parsedValue.slice(0, MAX_COMPARE_PRODUCTS) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -73,6 +112,10 @@ export default function App() {
   useEffect(() => {
     cartItemsRef.current = cartItems;
   }, [cartItems]);
+
+  useEffect(() => {
+    localStorage.setItem(COMPARE_STORAGE_KEY, JSON.stringify(compareProducts));
+  }, [compareProducts]);
 
   // Tracking API (Chống spam bằng sessionStorage)
   useEffect(() => {
@@ -114,6 +157,12 @@ export default function App() {
       const response = await axiosClient.get('/products');
       setAllProducts(Array.isArray(response) ? response : (response.data || []));
     } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn('Using mock products because local API is unavailable:', err);
+        setAllProducts(devFallbackProducts);
+        setError(null);
+        return;
+      }
       setError('Lỗi khi tải dữ liệu sản phẩm. Vui lòng thử lại sau.');
       console.error("Fetch products error:", err);
     } finally {
@@ -215,6 +264,35 @@ export default function App() {
 
   const handleResetFilters = () => setFilters({ year: '', make: '', model: '', engine: '' });
 
+  const isProductCompared = useCallback((productId) => {
+    return compareProducts.some(product => getProductId(product) === productId);
+  }, [compareProducts]);
+
+  const handleToggleCompare = useCallback((product) => {
+    const productId = getProductId(product);
+    if (!productId) return;
+
+    setCompareProducts((currentProducts) => {
+      const exists = currentProducts.some(item => getProductId(item) === productId);
+      if (exists) {
+        return currentProducts.filter(item => getProductId(item) !== productId);
+      }
+
+      if (currentProducts.length >= MAX_COMPARE_PRODUCTS) {
+        notifyWarning('Bạn chỉ có thể so sánh tối đa 3 sản phẩm cùng lúc!');
+        return currentProducts;
+      }
+
+      return [...currentProducts, normalizeCompareProduct(product)];
+    });
+  }, []);
+
+  const handleRemoveCompareProduct = useCallback((productId) => {
+    setCompareProducts((currentProducts) =>
+      currentProducts.filter(product => getProductId(product) !== productId),
+    );
+  }, []);
+
   const navigateTo = (view, productId = null) => {
     setCurrentView(view);
     if (productId) setActiveProductId(productId);
@@ -230,7 +308,7 @@ export default function App() {
       const availableStock = Number(latestProduct.stock_quantity || 0);
 
       if (availableStock <= 0) {
-        alert('Sản phẩm đã hết hàng');
+        notifyWarning('Sản phẩm đã hết hàng.');
         await fetchAllProducts();
         return false;
       }
@@ -239,7 +317,7 @@ export default function App() {
       const existingQuantity = existingCartItem?.quantity || 0;
 
       if (existingQuantity >= availableStock) {
-        alert(`Sản phẩm chỉ còn ${availableStock} món trong kho.`);
+        notifyWarning(`Sản phẩm chỉ còn ${availableStock} món trong kho.`);
         return false;
       }
 
@@ -253,14 +331,19 @@ export default function App() {
 
       cartItemsRef.current = nextCartItems;
       setCartItems(nextCartItems);
-      alert(`Đã thêm ${latestProduct.title} vào giỏ hàng!`);
+      notifySuccess(`Đã thêm ${latestProduct.title} vào giỏ hàng!`);
       return true;
 
     } catch (err) {
       console.error('Check stock error:', err);
-      alert('Không thể kiểm tra tồn kho. Vui lòng thử lại sau.');
+      notifyError('Không thể kiểm tra tồn kho. Vui lòng thử lại sau.');
       return false;
     }
+  };
+
+  const handleCompareBuy = async (product) => {
+    const added = await handleQuickBuy(product);
+    if (added) navigateTo('checkout');
   };
 
   const handleLoginSuccess = (loggedInUser) => {
@@ -361,6 +444,8 @@ export default function App() {
                         product={product} 
                         onSelect={(id) => navigateTo('detail', id)}
                         onQuickBuy={handleQuickBuy}
+                        isCompared={isProductCompared(product._id || product.id)}
+                        onToggleCompare={handleToggleCompare}
                       />
                     ))}
                   </div>
@@ -374,6 +459,10 @@ export default function App() {
           <ProductView 
             productId={activeProductId} 
             onBack={() => navigateTo('home')}
+            onSelectProduct={(id) => navigateTo('detail', id)}
+            isCompared={isProductCompared(activeProductId)}
+            onToggleCompare={handleToggleCompare}
+            fallbackProduct={allProducts.find(product => (product._id || product.id) === activeProductId)}
             onAddToCart={async (product) => {
               const added = await handleQuickBuy(product);
               if (added) navigateTo('checkout');
@@ -394,6 +483,15 @@ export default function App() {
               navigateTo('home');
             }}
             onLoginClick={() => setIsAuthModalOpen(true)}
+          />
+        )}
+
+        {currentView === 'compare' && (
+          <CompareProducts
+            products={compareProducts}
+            onRemoveProduct={handleRemoveCompareProduct}
+            onAddToCart={handleCompareBuy}
+            onBack={() => navigateTo('home')}
           />
         )}
 
@@ -434,6 +532,12 @@ export default function App() {
         onViewAll={() => setCurrentView('home')}
       />
       <RecentPurchaseToast />
+      <CompareBar
+        products={compareProducts}
+        onRemoveProduct={handleRemoveCompareProduct}
+        onOpenCompare={() => navigateTo('compare')}
+      />
     </div>
   );
 }
+

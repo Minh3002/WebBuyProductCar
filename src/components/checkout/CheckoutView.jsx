@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Trash2, ShieldAlert, CreditCard, Banknote } from 'lucide-react';
 
 import GuideWiki from './GuideWiki';
 import axiosClient from '../../api/axiosClient';
 import { getProductImage, resolveMediaUrl } from '../../utils/media';
+import { notifyError, notifySuccess, notifyWarning } from '../../utils/alerts';
 
 export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderSuccess, user, onLoginClick }) {
   const getInitialPhone = (u) => {
@@ -71,18 +72,18 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
         const currentItem = cartItems.find(item => (item._id || item.id) === id);
 
         if (availableStock <= 0) {
-          alert('Sản phẩm đã hết hàng');
+          notifyWarning('Sản phẩm đã hết hàng.');
           removeItem(id);
           return;
         }
 
         if ((currentItem?.quantity || 0) >= availableStock) {
-          alert(`Sản phẩm chỉ còn ${availableStock} món trong kho.`);
+          notifyWarning(`Sản phẩm chỉ còn ${availableStock} món trong kho.`);
           return;
         }
       } catch (error) {
         console.error('Check stock error:', error);
-        alert('Không thể kiểm tra tồn kho. Vui lòng thử lại sau.');
+        notifyError('Không thể kiểm tra tồn kho. Vui lòng thử lại sau.');
         return;
       }
     }
@@ -130,7 +131,7 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
       return;
     }
     if (cartItems.length === 0) {
-      alert("Giỏ hàng đang trống!");
+      notifyWarning('Giỏ hàng đang trống.');
       return;
     }
 
@@ -155,12 +156,12 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
       };
 
       await axiosClient.post('/orders', orderPayload);
-      alert('Đặt hàng thành công! Đơn hàng của bạn đã được chuyển tới Admin (Mến) để duyệt.');
+      notifySuccess('Đặt hàng thành công! Đơn hàng của bạn đã được chuyển tới Admin để duyệt.');
       if (onOrderSuccess) await onOrderSuccess();
     } catch (error) {
       console.error('Submit order error:', error);
       const errorMsg = error.response?.data?.message;
-      alert('Lỗi: ' + (Array.isArray(errorMsg) ? errorMsg.join(', ') : (errorMsg || 'Không thể gửi đơn hàng. Vui lòng thử lại.')));
+      notifyError(Array.isArray(errorMsg) ? errorMsg.join(', ') : (errorMsg || 'Không thể gửi đơn hàng. Vui lòng thử lại.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -294,7 +295,7 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
                 value={formData.vin}
                 onChange={handleVinChange}
                 maxLength={17}
-                className={`w-full p-2.5 border rounded outline-none font-mono font-bold tracking-wider uppercase ${vinError ? 'border-brand-primary bg-red-50' : 'focus:border-brand-primary'}`}
+                className={`w-full p-2.5 border rounded outline-none font-bold tracking-wider uppercase ${vinError ? 'border-brand-primary bg-red-50' : 'focus:border-brand-primary'}`}
                 placeholder="Gồm 17 ký tự"
               />
               {vinError && <p className="text-xs text-brand-primary mt-1 font-semibold">{vinError}</p>}
@@ -330,7 +331,7 @@ export default function CheckoutView({ cartItems, setCartItems, onBack, onOrderS
                   className="w-48 h-48 mb-3 rounded-lg shadow-sm"
                 />
                 <p className="font-bold text-brand-dark">Ngân hàng VPBank</p>
-                <p className="font-mono text-lg font-bold text-brand-primary tracking-widest mt-1">286957358</p>
+                <p className="text-lg font-bold text-brand-primary tracking-widest mt-1">286957358</p>
                 <p className="text-sm">Chủ TK: TRƯƠNG GIA MINH</p>
                 <p className="text-xs text-gray-500 mt-2">Quét mã QR để thanh toán chính xác số tiền</p>
               </div>

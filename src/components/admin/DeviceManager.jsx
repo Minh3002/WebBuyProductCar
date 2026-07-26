@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Laptop, Smartphone, Search, RefreshCw, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight, Laptop, RefreshCw, Smartphone, Trash2 } from 'lucide-react';
 import axiosClient from '../../api/axiosClient';
+import { confirmAction, notifyError, notifySuccess } from '../../utils/alerts';
 
 export default function DeviceManager() {
   const [logs, setLogs] = useState([]);
@@ -9,6 +10,7 @@ export default function DeviceManager() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [filterDate, setFilterDate] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const fetchLogs = async () => {
     setIsLoading(true);
@@ -20,6 +22,7 @@ export default function DeviceManager() {
       setTotalItems(res.total || 0);
     } catch (err) {
       console.error('Error fetching access logs', err);
+      notifyError('Không thể tải lịch sử truy cập.');
     } finally {
       setIsLoading(false);
     }
@@ -30,65 +33,80 @@ export default function DeviceManager() {
   }, [page, filterDate]);
 
   const handleDelete = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa lượt truy cập này?')) {
-      try {
-        await axiosClient.delete(`/admin/access-logs/${id}`);
-        fetchLogs();
-      } catch (err) {
-        console.error('Failed to delete log', err);
-      }
+    const confirmed = await confirmAction({
+      title: 'Xóa lượt truy cập?',
+      text: 'Hành động này không thể hoàn tác.',
+      confirmButtonText: 'Đồng ý xóa',
+    });
+    if (!confirmed) return;
+
+    try {
+      await axiosClient.delete(`/admin/access-logs/${id}`);
+      notifySuccess('Đã xóa lượt truy cập.');
+      fetchLogs();
+    } catch (err) {
+      console.error('Failed to delete log', err);
+      notifyError('Không thể xóa lượt truy cập.');
     }
   };
 
   const handleClearAll = async () => {
-    if (window.confirm('Hành động này sẽ xóa TOÀN BỘ lịch sử truy cập của hệ thống. Bạn có chắc chắn không?')) {
-      try {
-        await axiosClient.delete('/admin/access-logs/clear-all');
-        setPage(1);
-        fetchLogs();
-      } catch (err) {
-        console.error('Failed to clear logs', err);
-      }
+    const confirmed = await confirmAction({
+      title: 'Xóa toàn bộ lịch sử truy cập?',
+      text: 'Hành động này sẽ xóa toàn bộ lịch sử truy cập của hệ thống.',
+      confirmButtonText: 'Đồng ý xóa',
+    });
+    if (!confirmed) return;
+
+    try {
+      await axiosClient.delete('/admin/access-logs/clear-all');
+      notifySuccess('Đã xóa toàn bộ lịch sử truy cập.');
+      setSelectedIds([]);
+      setPage(1);
+      fetchLogs();
+    } catch (err) {
+      console.error('Failed to clear logs', err);
+      notifyError('Không thể xóa toàn bộ lịch sử truy cập.');
     }
   };
 
-  const [selectedIds, setSelectedIds] = useState([]);
-
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedIds(logs.map(log => log._id));
-    } else {
-      setSelectedIds([]);
-    }
+  const handleSelectAll = (event) => {
+    setSelectedIds(event.target.checked ? logs.map((log) => log._id) : []);
   };
 
   const handleSelectRow = (id) => {
-    if (selectedIds.includes(id)) {
-      setSelectedIds(selectedIds.filter(selectedId => selectedId !== id));
-    } else {
-      setSelectedIds([...selectedIds, id]);
-    }
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((selectedId) => selectedId !== id) : [...current, id],
+    );
   };
 
   const handleBulkDelete = async () => {
-    if (window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} mục đã chọn không?`)) {
-      try {
-        await axiosClient.post('/admin/access-logs/bulk-delete', { ids: selectedIds });
-        setSelectedIds([]);
-        fetchLogs();
-      } catch (err) {
-        console.error('Failed to bulk delete', err);
-      }
+    const confirmed = await confirmAction({
+      title: 'Xóa các lượt truy cập đã chọn?',
+      text: `Bạn có chắc chắn muốn xóa ${selectedIds.length} mục đã chọn không?`,
+      confirmButtonText: 'Đồng ý xóa',
+    });
+    if (!confirmed) return;
+
+    try {
+      await axiosClient.post('/admin/access-logs/bulk-delete', { ids: selectedIds });
+      notifySuccess('Đã xóa các lượt truy cập đã chọn.');
+      setSelectedIds([]);
+      fetchLogs();
+    } catch (err) {
+      console.error('Failed to bulk delete', err);
+      notifyError('Không thể xóa các lượt truy cập đã chọn.');
     }
   };
 
   return (
     <div className="bg-white rounded-lg border border-gray-200">
-      <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-lg">
+      <div className="p-4 border-b border-gray-200 flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between bg-gray-50 rounded-t-lg">
         <h3 className="font-bold text-lg text-gray-800">Chi tiết thiết bị & vị trí truy cập</h3>
-        <div className="flex gap-3 items-center">
+        <div className="flex flex-wrap gap-3 items-center">
           {selectedIds.length > 0 && (
-            <button 
+            <button
+              type="button"
               onClick={handleBulkDelete}
               className="px-3 py-1.5 bg-red-600 text-white font-semibold text-sm rounded hover:bg-red-700 transition-colors shadow-sm flex items-center gap-1"
             >
@@ -97,23 +115,32 @@ export default function DeviceManager() {
             </button>
           )}
           <div className="px-3 py-1.5 bg-brand-dark text-white rounded text-sm font-bold shadow-sm">
-            TẤT CẢ THIẾT BỊ
+            Tất cả thiết bị
           </div>
-          <input 
-            type="date" 
+          <input
+            type="date"
             value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
+            onChange={(event) => {
+              setPage(1);
+              setFilterDate(event.target.value);
+            }}
             className="border border-gray-300 rounded px-2 py-1.5 text-sm"
           />
-          <button 
+          <button
+            type="button"
             onClick={handleClearAll}
             className="px-3 py-1.5 bg-red-500 text-white font-semibold text-sm rounded hover:bg-red-600 transition-colors shadow-sm"
             title="Xóa tất cả"
           >
             Xóa tất cả
           </button>
-          <button 
-            onClick={() => { setPage(1); fetchLogs(); setSelectedIds([]); }}
+          <button
+            type="button"
+            onClick={() => {
+              setPage(1);
+              setSelectedIds([]);
+              fetchLogs();
+            }}
             className="p-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
             title="Làm mới"
           >
@@ -127,8 +154,8 @@ export default function DeviceManager() {
           <thead>
             <tr className="bg-gray-100 text-gray-600 text-sm">
               <th className="p-3 border-b text-center w-10">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   className="w-4 h-4 cursor-pointer"
                   checked={logs.length > 0 && selectedIds.length === logs.length}
                   onChange={handleSelectAll}
@@ -147,18 +174,18 @@ export default function DeviceManager() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan="10" className="p-8 text-center text-gray-500">Đang tải dữ liệu...</td>
+                <td colSpan="9" className="p-8 text-center text-gray-500">Đang tải dữ liệu...</td>
               </tr>
             ) : logs.length === 0 ? (
               <tr>
-                <td colSpan="10" className="p-8 text-center text-gray-500">Không có dữ liệu truy cập</td>
+                <td colSpan="9" className="p-8 text-center text-gray-500">Không có dữ liệu truy cập</td>
               </tr>
             ) : (
               logs.map((log) => (
                 <tr key={log._id} className={`border-b hover:bg-gray-50 text-sm ${selectedIds.includes(log._id) ? 'bg-blue-50/50' : ''}`}>
                   <td className="p-3 text-center">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       className="w-4 h-4 cursor-pointer"
                       checked={selectedIds.includes(log._id)}
                       onChange={() => handleSelectRow(log._id)}
@@ -169,15 +196,13 @@ export default function DeviceManager() {
                   </td>
                   <td className="p-3">
                     <p className="font-bold text-gray-800">{log.browser}</p>
-                    <p className="text-xs text-gray-500">{log.os} • {log.deviceType}</p>
+                    <p className="text-xs text-gray-500">{log.os} · {log.deviceType}</p>
                   </td>
                   <td className="p-3">
-                    <p className="font-mono text-gray-700">{log.ip}</p>
+                    <p className="text-gray-700">{log.ip}</p>
                     <p className="text-xs text-gray-500">{log.isp || 'N/A'}</p>
                   </td>
-                  <td className="p-3 text-gray-700">
-                    {log.location}
-                  </td>
+                  <td className="p-3 text-gray-700">{log.location}</td>
                   <td className="p-3">
                     <p className="font-bold text-gray-800 line-clamp-1">{log.userName}</p>
                     {log.userRole && (
@@ -199,7 +224,8 @@ export default function DeviceManager() {
                     {new Date(log.createdAt).toLocaleString('vi-VN')}
                   </td>
                   <td className="p-3 text-center">
-                    <button 
+                    <button
+                      type="button"
                       onClick={() => handleDelete(log._id)}
                       className="p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
                       title="Xóa"
@@ -221,16 +247,18 @@ export default function DeviceManager() {
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-600">Trang {page} / {totalPages}</span>
           <div className="flex gap-1">
-            <button 
+            <button
+              type="button"
               disabled={page <= 1}
-              onClick={() => setPage(p => Math.max(1, p - 1))}
+              onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
               className="p-1 border rounded bg-white text-gray-600 disabled:opacity-50 hover:bg-gray-50"
             >
               <ChevronLeft size={18} />
             </button>
-            <button 
+            <button
+              type="button"
               disabled={page >= totalPages}
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
               className="p-1 border rounded bg-white text-gray-600 disabled:opacity-50 hover:bg-gray-50"
             >
               <ChevronRight size={18} />

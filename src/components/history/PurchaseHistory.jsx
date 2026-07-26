@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import axiosClient from '../../api/axiosClient';
+import { notifyInfo } from '../../utils/alerts';
 
 export default function PurchaseHistory({ user, onBack, handleLogout }) {
   const [orders, setOrders] = useState([]);
@@ -19,7 +20,7 @@ export default function PurchaseHistory({ user, onBack, handleLogout }) {
         setOrders(data);
       } catch (err) {
         if (err.response?.status === 401) {
-          alert('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.');
+          await notifyInfo('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.');
           handleLogout();
         } else {
           setError('Không thể tải lịch sử đơn hàng. Vui lòng thử lại.');
@@ -86,7 +87,7 @@ export default function PurchaseHistory({ user, onBack, handleLogout }) {
             <div key={order._id} className="border border-[#E5E5E5] rounded-lg overflow-hidden">
               <div className="bg-gray-50 px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-[#E5E5E5]">
                 <div>
-                  <p className="text-sm text-[#777777] mb-1">Mã đơn hàng: <span className="font-mono text-[#111111]">{order._id}</span></p>
+                  <p className="text-sm text-[#777777] mb-1">Mã đơn hàng: <span className="font-semibold text-[#111111]">{order._id}</span></p>
                   <p className="text-sm text-[#777777]">Ngày đặt: <span className="text-[#111111] font-medium">{new Date(order.createdAt).toLocaleString('vi-VN')}</span></p>
                   {order.vin_number && (
                     <p className="text-sm text-[#777777] mt-1">Số khung (VIN): <span className="text-[#111111] font-medium">{order.vin_number}</span></p>
@@ -111,7 +112,7 @@ export default function PurchaseHistory({ user, onBack, handleLogout }) {
                     {order.items.map((item, idx) => (
                       <tr key={idx} className="border-b border-gray-100 last:border-0">
                         <td className="py-4 pr-4">{item.title}</td>
-                        <td className="py-4 pr-4 font-mono">{item.oem_code}</td>
+                        <td className="py-4 pr-4 font-semibold">{item.oem_code}</td>
                         <td className="py-4 px-4 text-center">{item.quantity}</td>
                         <td className="py-4 text-right font-medium">{item.price_at_purchase.toLocaleString('vi-VN')} đ</td>
                       </tr>
@@ -132,3 +133,5 @@ export default function PurchaseHistory({ user, onBack, handleLogout }) {
     </div>
   );
 }
+
+

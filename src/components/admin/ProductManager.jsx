@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Edit, ImagePlus, Plus, Search, Star, Trash2, X } from 'lucide-react';
 import axiosClient from '../../api/axiosClient';
 import { CATEGORIES } from '../../data/mockData';
-import { resolveMediaUrl } from '../../utils/media';
+import { resolveMediaUrl, getProductImage } from '../../utils/media';
+import { confirmAction, notifyError, notifySuccess, promptText } from '../../utils/alerts';
 
 const emptyProduct = {
   title: '',
@@ -21,6 +22,8 @@ const emptyProduct = {
 };
 
 const pageSize = 12;
+const maxImageSize = 10 * 1024 * 1024;
+const maxUploadSize = 50 * 1024 * 1024;
 
 export default function ProductManager({ onProductsChanged }) {
   const [products, setProducts] = useState([]);
@@ -29,8 +32,10 @@ export default function ProductManager({ onProductsChanged }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [formData, setFormData] = useState(emptyProduct);
+  const [imageError, setImageError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const fetchProducts = async () => {
     setIsLoading(true);
@@ -39,7 +44,7 @@ export default function ProductManager({ onProductsChanged }) {
       setProducts(Array.isArray(data) ? data : data?.data || []);
     } catch (error) {
       console.error('Fetch products error:', error);
-      alert('Không thể tải danh sách sản phẩm.');
+      notifyError('Không thể tải danh sách sản phẩm.');
       setProducts([]);
     } finally {
       setIsLoading(false);
@@ -54,11 +59,11 @@ export default function ProductManager({ onProductsChanged }) {
     const keyword = searchTerm.trim().toLowerCase();
     if (!keyword) return products;
 
-    return products.filter((product) => {
-      return [product.title, product.oem_code, product.brand, product.category]
+    return products.filter((product) =>
+      [product.title, product.oem_code, product.brand, product.category]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(keyword));
-    });
+        .some((value) => String(value).toLowerCase().includes(keyword)),
+    );
   }, [products, searchTerm]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
@@ -71,6 +76,7 @@ export default function ProductManager({ onProductsChanged }) {
   const openCreateModal = () => {
     setEditingProduct(null);
     setFormData(emptyProduct);
+    setImageError('');
     setIsModalOpen(true);
   };
 
@@ -88,12 +94,10 @@ export default function ProductManager({ onProductsChanged }) {
       origin: product.origin || '',
       warranty: product.warranty || '',
       condition: product.condition || '',
-      specifications:
-        product.specifications?.length > 0
-          ? product.specifications
-          : [{ label: '', value: '' }],
-      images: product.images?.length > 0 ? product.images : product.image_url ? [product.image_url] : [],
+      specifications: product.specifications?.length ? product.specifications : [{ label: '', value: '' }],
+      images: product.images?.length ? product.images : product.image_url ? [product.image_url] : [],
     });
+    setImageError('');
     setIsModalOpen(true);
   };
 
@@ -127,8 +131,22 @@ export default function ProductManager({ onProductsChanged }) {
   const uploadImages = async (files) => {
     if (!files?.length) return;
 
+    const selectedFiles = Array.from(files);
+    const oversizedFile = selectedFiles.find((file) => file.size > maxImageSize);
+    const totalUploadSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+
+    if (oversizedFile) {
+      setImageError('Dung lượng ảnh quá lớn. Vui lòng chọn ảnh dưới 10MB hoặc giảm độ phân giải.');
+      return;
+    }
+
+    if (totalUploadSize > maxUploadSize) {
+      setImageError('Tổng dung lượng ảnh quá lớn. Vui lòng upload tối đa 50MB mỗi lần.');
+      return;
+    }
+
     const payload = new FormData();
-    Array.from(files).forEach((file) => payload.append('images', file));
+    selectedFiles.forEach((file) => payload.append('images', file));
 
     try {
       const result = await axiosClient.post('/products/upload-images', payload);
@@ -136,15 +154,26 @@ export default function ProductManager({ onProductsChanged }) {
         ...prev,
         images: [...prev.images, ...(result.urls || [])],
       }));
+      setImageError('');
     } catch (error) {
       console.error('Upload images error:', error);
-      alert('Upload ảnh thất bại. Vui lòng kiểm tra quyền admin và định dạng ảnh.');
+      if (error.response?.status === 413 || error.message?.includes('Large')) {
+        setImageError('Dung lượng ảnh quá lớn. Vui lòng chọn ảnh dưới 10MB hoặc giảm độ phân giải.');
+      } else {
+        setImageError('Có lỗi xảy ra khi tải ảnh lên, vui lòng thử lại.');
+      }
     }
   };
 
-  const addImageUrl = () => {
-    const url = window.prompt('Nhập URL ảnh:');
-    if (!url?.trim()) return;
+  const addImageUrl = async () => {
+    const url = await promptText({
+      title: 'Thêm URL ảnh',
+      inputLabel: 'URL ảnh sản phẩm',
+      inputPlaceholder: 'https://...',
+      confirmButtonText: 'Thêm ảnh',
+    });
+    if (!url) return;
+    setImageError('');
     setFormData((prev) => ({ ...prev, images: [...prev.images, url.trim()] }));
   };
 
@@ -190,10 +219,10 @@ export default function ProductManager({ onProductsChanged }) {
     try {
       if (editingProduct?._id) {
         await axiosClient.put(`/products/${editingProduct._id}`, payload);
-        alert('Cập nhật sản phẩm thành công.');
+        notifySuccess('Cập nhật sản phẩm thành công.');
       } else {
         await axiosClient.post('/products', payload);
-        alert('Thêm sản phẩm thành công.');
+        notifySuccess('Thêm sản phẩm thành công.');
       }
 
       setIsModalOpen(false);
@@ -201,54 +230,58 @@ export default function ProductManager({ onProductsChanged }) {
       onProductsChanged?.();
     } catch (error) {
       console.error('Save product error:', error);
-      alert(error.response?.data?.message || 'Không thể lưu sản phẩm.');
+      notifyError(error.response?.data?.message || 'Không thể lưu sản phẩm.');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (product) => {
-    if (!window.confirm(`Xóa sản phẩm "${product.title}"?`)) return;
+    const confirmed = await confirmAction({
+      title: 'Xóa sản phẩm?',
+      text: `Bạn có chắc chắn muốn xóa "${product.title}" không?`,
+      confirmButtonText: 'Đồng ý xóa',
+    });
+    if (!confirmed) return;
 
     try {
       await axiosClient.delete(`/products/${product._id}`);
       await fetchProducts();
       onProductsChanged?.();
-      alert('Xóa sản phẩm thành công.');
+      notifySuccess('Xóa sản phẩm thành công.');
     } catch (error) {
       console.error('Delete product error:', error);
-      alert('Không thể xóa sản phẩm.');
+      notifyError('Không thể xóa sản phẩm.');
     }
   };
 
-  const [selectedIds, setSelectedIds] = useState([]);
-
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedIds(visibleProducts.map(p => p._id));
-    } else {
-      setSelectedIds([]);
-    }
+  const handleSelectAll = (event) => {
+    setSelectedIds(event.target.checked ? visibleProducts.map((product) => product._id) : []);
   };
 
   const handleSelectRow = (id) => {
-    if (selectedIds.includes(id)) {
-      setSelectedIds(selectedIds.filter(selectedId => selectedId !== id));
-    } else {
-      setSelectedIds([...selectedIds, id]);
-    }
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((selectedId) => selectedId !== id) : [...current, id],
+    );
   };
 
   const handleBulkDelete = async () => {
-    if (window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} sản phẩm đã chọn không?`)) {
-      try {
-        await axiosClient.post('/products/bulk-delete', { ids: selectedIds });
-        setSelectedIds([]);
-        await fetchProducts();
-        onProductsChanged?.();
-      } catch (err) {
-        console.error('Failed to bulk delete', err);
-      }
+    if (!selectedIds.length) return;
+    const confirmed = await confirmAction({
+      title: 'Xóa sản phẩm đã chọn?',
+      text: `Bạn có chắc chắn muốn xóa ${selectedIds.length} sản phẩm đã chọn không?`,
+      confirmButtonText: 'Đồng ý xóa',
+    });
+    if (!confirmed) return;
+
+    try {
+      await axiosClient.post('/products/bulk-delete', { ids: selectedIds });
+      setSelectedIds([]);
+      await fetchProducts();
+      onProductsChanged?.();
+    } catch (error) {
+      console.error('Bulk delete products error:', error);
+      notifyError('Không thể xóa các sản phẩm đã chọn.');
     }
   };
 
@@ -257,7 +290,8 @@ export default function ProductManager({ onProductsChanged }) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
         <div className="flex items-center gap-3 w-full md:w-auto">
           {selectedIds.length > 0 && (
-            <button 
+            <button
+              type="button"
               onClick={handleBulkDelete}
               className="px-3 py-2 bg-red-600 text-white font-semibold text-sm rounded-lg hover:bg-red-700 transition flex items-center gap-2 shadow-sm whitespace-nowrap"
             >
@@ -265,6 +299,7 @@ export default function ProductManager({ onProductsChanged }) {
               Xóa ({selectedIds.length})
             </button>
           )}
+
           <div className="relative flex-1 max-w-md w-full">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -274,12 +309,13 @@ export default function ProductManager({ onProductsChanged }) {
                 setPage(1);
               }}
               className="w-full pl-10 pr-3 py-2 border rounded-lg outline-none focus:border-brand-primary"
-              placeholder="Tìm theo tên, OEM..."
+              placeholder="Tìm theo tên, OEM, thương hiệu..."
             />
           </div>
         </div>
 
         <button
+          type="button"
           onClick={openCreateModal}
           className="bg-brand-primary text-white font-bold px-4 py-2 rounded-lg shadow hover:bg-red-600 transition inline-flex items-center justify-center gap-2 whitespace-nowrap"
         >
@@ -292,8 +328,8 @@ export default function ProductManager({ onProductsChanged }) {
           <thead>
             <tr className="bg-gray-100 text-sm">
               <th className="p-3 border text-center w-10">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   className="w-4 h-4 cursor-pointer"
                   checked={visibleProducts.length > 0 && selectedIds.length === visibleProducts.length}
                   onChange={handleSelectAll}
@@ -324,25 +360,29 @@ export default function ProductManager({ onProductsChanged }) {
               visibleProducts.map((product) => (
                 <tr key={product._id} className={`border-b hover:bg-gray-50 text-sm ${selectedIds.includes(product._id) ? 'bg-blue-50/50' : ''}`}>
                   <td className="p-3 text-center border">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       className="w-4 h-4 cursor-pointer"
                       checked={selectedIds.includes(product._id)}
                       onChange={() => handleSelectRow(product._id)}
                     />
                   </td>
-                  <td className="p-3 border w-24">
-                    <img
-                      src={resolveMediaUrl(product.images?.[0] || product.image_url)}
-                      alt={product.title}
-                      className="w-14 h-14 rounded object-cover bg-gray-100"
-                    />
+                  <td className="p-3 border">
+                    <div className="w-12 h-12 rounded-lg bg-neutral-100 border border-[#E5E5E5] overflow-hidden flex-shrink-0">
+                      <img 
+                        src={resolveMediaUrl(getProductImage(product))} 
+                        alt="" 
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
                   </td>
                   <td className="p-3 border">
                     <p className="font-bold line-clamp-1">{product.title}</p>
-                    <p className="text-xs text-gray-500">{product.brand || 'Chưa có thương hiệu'} · {product.category || 'Chưa phân loại'}</p>
+                    <p className="text-xs text-gray-500">
+                      {product.brand || 'Chưa có thương hiệu'} · {product.category || 'Chưa phân loại'}
+                    </p>
                   </td>
-                  <td className="p-3 border font-mono text-xs">{product.oem_code}</td>
+                  <td className="p-3 border text-xs font-semibold">{product.oem_code}</td>
                   <td className="p-3 border font-bold">{product.stock_quantity || 0}</td>
                   <td className="p-3 border text-right font-bold text-brand-primary">
                     {Number(product.price || 0).toLocaleString('vi-VN')} đ
@@ -350,12 +390,14 @@ export default function ProductManager({ onProductsChanged }) {
                   <td className="p-3 border text-center">
                     <div className="flex justify-center gap-2">
                       <button
+                        type="button"
                         onClick={() => openEditModal(product)}
                         className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-blue-700 inline-flex items-center gap-1"
                       >
                         <Edit size={14} /> Sửa
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleDelete(product)}
                         className="bg-red-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-red-700 inline-flex items-center gap-1"
                       >
@@ -376,6 +418,7 @@ export default function ProductManager({ onProductsChanged }) {
         </span>
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setPage((prev) => Math.max(1, prev - 1))}
             disabled={page === 1}
             className="px-3 py-1.5 border rounded disabled:opacity-50"
@@ -384,6 +427,7 @@ export default function ProductManager({ onProductsChanged }) {
           </button>
           <span className="font-bold">{page}/{totalPages}</span>
           <button
+            type="button"
             onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
             disabled={page === totalPages}
             className="px-3 py-1.5 border rounded disabled:opacity-50"
@@ -400,7 +444,7 @@ export default function ProductManager({ onProductsChanged }) {
               <h3 className="text-white font-bold text-lg">
                 {editingProduct ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-300 hover:text-white">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="text-gray-300 hover:text-white">
                 <X size={22} />
               </button>
             </div>
@@ -408,44 +452,44 @@ export default function ProductManager({ onProductsChanged }) {
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="Tên sản phẩm *">
-                  <input required value={formData.title} onChange={(e) => updateField('title', e.target.value)} className="form-input" />
+                  <input required value={formData.title} onChange={(event) => updateField('title', event.target.value)} className="form-input" />
                 </Field>
                 <Field label="Mã OEM *">
-                  <input required value={formData.oem_code} onChange={(e) => updateField('oem_code', e.target.value.toUpperCase())} className="form-input font-mono uppercase" />
+                  <input required value={formData.oem_code} onChange={(event) => updateField('oem_code', event.target.value.toUpperCase())} className="form-input uppercase" />
                 </Field>
                 <Field label="Thương hiệu">
-                  <input value={formData.brand} onChange={(e) => updateField('brand', e.target.value)} className="form-input" />
+                  <input value={formData.brand} onChange={(event) => updateField('brand', event.target.value)} className="form-input" />
                 </Field>
                 <Field label="Danh mục">
-                  <select value={formData.category} onChange={(e) => updateField('category', e.target.value)} className="form-input">
+                  <select value={formData.category} onChange={(event) => updateField('category', event.target.value)} className="form-input">
                     <option value="">Chọn danh mục</option>
-                    {CATEGORIES.filter((cat) => cat !== 'Tất cả').map((category) => (
+                    {CATEGORIES.filter((category) => category !== 'Tất cả').map((category) => (
                       <option key={category} value={category}>{category}</option>
                     ))}
                   </select>
                 </Field>
                 <Field label="Giá bán *">
-                  <input required type="number" min="0" value={formData.price} onChange={(e) => updateField('price', e.target.value)} className="form-input" />
+                  <input required type="number" min="0" value={formData.price} onChange={(event) => updateField('price', event.target.value)} className="form-input" />
                 </Field>
                 <Field label="Giá cũ">
-                  <input type="number" min="0" value={formData.old_price} onChange={(e) => updateField('old_price', e.target.value)} className="form-input" />
+                  <input type="number" min="0" value={formData.old_price} onChange={(event) => updateField('old_price', event.target.value)} className="form-input" />
                 </Field>
                 <Field label="Số lượng kho *">
-                  <input required type="number" min="0" value={formData.stock_quantity} onChange={(e) => updateField('stock_quantity', e.target.value)} className="form-input" />
+                  <input required type="number" min="0" value={formData.stock_quantity} onChange={(event) => updateField('stock_quantity', event.target.value)} className="form-input" />
                 </Field>
                 <Field label="Xuất xứ">
-                  <input value={formData.origin} onChange={(e) => updateField('origin', e.target.value)} className="form-input" />
+                  <input value={formData.origin} onChange={(event) => updateField('origin', event.target.value)} className="form-input" />
                 </Field>
                 <Field label="Bảo hành">
-                  <input value={formData.warranty} onChange={(e) => updateField('warranty', e.target.value)} className="form-input" />
+                  <input value={formData.warranty} onChange={(event) => updateField('warranty', event.target.value)} className="form-input" />
                 </Field>
                 <Field label="Tình trạng">
-                  <input value={formData.condition} onChange={(e) => updateField('condition', e.target.value)} className="form-input" placeholder="Mới 100%" />
+                  <input value={formData.condition} onChange={(event) => updateField('condition', event.target.value)} className="form-input" placeholder="Mới 100%" />
                 </Field>
               </div>
 
               <Field label="Mô tả">
-                <textarea value={formData.description} onChange={(e) => updateField('description', e.target.value)} className="form-input min-h-24" />
+                <textarea value={formData.description} onChange={(event) => updateField('description', event.target.value)} className="form-input min-h-24" />
               </Field>
 
               <div>
@@ -459,8 +503,23 @@ export default function ProductManager({ onProductsChanged }) {
                   <ImagePlus size={28} className="text-brand-primary mb-2" />
                   <span className="font-bold text-sm">Upload nhiều ảnh</span>
                   <span className="text-xs text-gray-500 mt-1">Ảnh đầu tiên là ảnh đại diện ngoài Home</span>
-                  <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => uploadImages(e.target.files)} />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => {
+                      uploadImages(event.target.files);
+                      event.target.value = '';
+                    }}
+                  />
                 </label>
+
+                {imageError && (
+                  <p className="text-red-500 text-xs font-semibold mt-2 animate-pulse">
+                    Cảnh báo: {imageError}
+                  </p>
+                )}
 
                 {formData.images.length > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
@@ -491,8 +550,8 @@ export default function ProductManager({ onProductsChanged }) {
                 <div className="space-y-2">
                   {formData.specifications.map((spec, index) => (
                     <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                      <input value={spec.label} onChange={(e) => updateSpec(index, 'label', e.target.value)} className="form-input" placeholder="Tên thông số" />
-                      <input value={spec.value} onChange={(e) => updateSpec(index, 'value', e.target.value)} className="form-input" placeholder="Giá trị" />
+                      <input value={spec.label} onChange={(event) => updateSpec(index, 'label', event.target.value)} className="form-input" placeholder="Tên thông số" />
+                      <input value={spec.value} onChange={(event) => updateSpec(index, 'value', event.target.value)} className="form-input" placeholder="Giá trị" />
                       <button type="button" onClick={() => removeSpec(index)} className="px-3 bg-gray-200 rounded hover:bg-gray-300">
                         <X size={16} />
                       </button>

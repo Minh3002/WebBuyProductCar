@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Trash2, TrendingUp, DollarSign, Users, ShoppingBag, Award } from 'lucide-react';
 import axiosClient from '../../api/axiosClient';
 import ProductManager from './ProductManager';
 import DeviceManager from './DeviceManager';
+import { confirmAction, notifyError, notifyInfo, notifySuccess } from '../../utils/alerts';
 
 export default function AdminDashboard({ user, onBack, handleLogout, onProductsChanged }) {
   const [activeTab, setActiveTab] = useState('orders'); // orders, customers, analytics, coupons, products
@@ -64,7 +65,7 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
     } catch (err) {
       console.error("API Error in fetchData:", err);
       if (err.response?.status === 401) {
-        alert('Phiên làm việc hết hạn');
+        await notifyInfo('Phiên làm việc hết hạn. Vui lòng đăng nhập lại.');
         handleLogout();
       } else {
         if (tab === 'orders') setOrders([]);
@@ -80,10 +81,10 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
   const handleApproveOrder = async (id) => {
     try {
       await axiosClient.patch(`/orders/${id}/status`, { status: 'Đã duyệt' });
-      alert('Đã duyệt đơn hàng thành công!');
+      notifySuccess('Đã duyệt đơn hàng thành công.');
       fetchData('orders');
     } catch (err) {
-      alert('Lỗi: ' + (err.response?.data?.message || 'Không thể duyệt đơn'));
+      notifyError(err.response?.data?.message || 'Có lỗi xảy ra.');
     }
   };
 
@@ -95,7 +96,7 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
         <head>
           <title>In Hóa Đơn - ${order._id}</title>
           <style>
-            body { font-family: 'Inter', Arial, sans-serif; padding: 40px; color: #111; line-height: 1.5; }
+            body { font-family: 'Be Vietnam Pro', Arial, sans-serif; padding: 40px; color: #111; line-height: 1.5; }
             .header { text-align: center; margin-bottom: 20px; }
             .header h2 { color: #ff2f2f; margin: 0; font-size: 28px; font-weight: 900; }
             .header p { margin: 0; color: #555; }
@@ -196,27 +197,27 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
       if (currentCustomer) {
         // Edit
         await axiosClient.put(`/customers/${currentCustomer._id}`, customerFormData);
-        alert('Cập nhật khách hàng thành công!');
+        notifySuccess('Cập nhật khách hàng thành công.');
       } else {
         // Add
         await axiosClient.post('/customers', customerFormData);
-        alert('Thêm khách hàng thành công!');
+        notifySuccess('Thêm khách hàng thành công.');
       }
       setIsCustomerModalOpen(false);
       fetchData('customers');
     } catch (err) {
-      alert('Lỗi: ' + (err.response?.data?.message || 'Có lỗi xảy ra'));
+      notifyError(err.response?.data?.message || 'Không thể duyệt đơn.');
     }
   };
 
   const handleDeleteCustomer = async (id) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa tài khoản này không?')) return;
+    if (!(await confirmAction({ title: 'Xóa khách hàng?', text: 'Hành động này không thể hoàn tác.', confirmButtonText: 'Đồng ý xóa' }))) return;
     try {
       await axiosClient.delete(`/customers/${id}`);
-      alert('Xóa thành công!');
+      notifySuccess('Xóa thành công.');
       fetchData('customers');
     } catch (err) {
-      alert('Lỗi xóa khách hàng');
+      notifyError('Không thể xóa khách hàng.');
     }
   };
 
@@ -230,7 +231,7 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
       fetchData('coupons');
       e.target.reset();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi');
+      notifyError(err.response?.data?.message || 'Có lỗi xảy ra.');
     }
   };
 
@@ -239,17 +240,17 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
       await axiosClient.put(`/coupons/${id}`, { isActive: !isActive });
       fetchData('coupons');
     } catch (err) {
-      alert('Lỗi cập nhật');
+      notifyError('Không thể cập nhật.');
     }
   };
 
   const handleDeleteCoupon = async (id) => {
-    if (!window.confirm('Xóa mã giảm giá này?')) return;
+    if (!(await confirmAction({ title: 'Xóa mã giảm giá?', text: 'Hành động này không thể hoàn tác.', confirmButtonText: 'Đồng ý xóa' }))) return;
     try {
       await axiosClient.delete(`/coupons/${id}`);
       fetchData('coupons');
     } catch (err) {
-      alert('Lỗi xóa');
+      notifyError('Không thể xóa.');
     }
   };
 
@@ -259,35 +260,35 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
   const [selectedCouponIds, setSelectedCouponIds] = useState([]);
 
   const handleBulkDeleteOrders = async () => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedOrderIds.length} đơn hàng đã chọn không?`)) return;
+    if (!(await confirmAction({ title: 'Xóa đơn hàng đã chọn?', text: `Bạn có chắc chắn muốn xóa ${selectedOrderIds.length} đơn hàng đã chọn không?`, confirmButtonText: 'Đồng ý xóa' }))) return;
     try {
       await axiosClient.post('/orders/bulk-delete', { ids: selectedOrderIds });
       setSelectedOrderIds([]);
       fetchData('orders');
     } catch (err) {
-      alert('Lỗi xóa đơn hàng');
+      notifyError('Không thể xóa đơn hàng.');
     }
   };
 
   const handleBulkDeleteCustomers = async () => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedCustomerIds.length} khách hàng đã chọn không?`)) return;
+    if (!(await confirmAction({ title: 'Xóa khách hàng đã chọn?', text: `Bạn có chắc chắn muốn xóa ${selectedCustomerIds.length} khách hàng đã chọn không?`, confirmButtonText: 'Đồng ý xóa' }))) return;
     try {
       await axiosClient.post('/customers/bulk-delete', { ids: selectedCustomerIds });
       setSelectedCustomerIds([]);
       fetchData('customers');
     } catch (err) {
-      alert('Lỗi xóa khách hàng');
+      notifyError('Không thể xóa khách hàng.');
     }
   };
 
   const handleBulkDeleteCoupons = async () => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedCouponIds.length} mã giảm giá đã chọn không?`)) return;
+    if (!(await confirmAction({ title: 'Xóa mã giảm giá đã chọn?', text: `Bạn có chắc chắn muốn xóa ${selectedCouponIds.length} mã giảm giá đã chọn không?`, confirmButtonText: 'Đồng ý xóa' }))) return;
     try {
       await axiosClient.post('/coupons/bulk-delete', { ids: selectedCouponIds });
       setSelectedCouponIds([]);
       fetchData('coupons');
     } catch (err) {
-      alert('Lỗi xóa mã giảm giá');
+      notifyError('Không thể xóa mã giảm giá.');
     }
   };
 
@@ -398,7 +399,7 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                           }}
                         />
                       </td>
-                      <td className="p-3 font-mono text-xs">{o._id}</td>
+                      <td className="p-3 text-xs font-semibold">{o._id}</td>
                       <td className="p-3">
                         <p className="font-bold">{o.customer_name}</p>
                         <p className="text-xs text-gray-500">{o.customer_phone}</p>
@@ -600,7 +601,7 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                               </div>
                               <div className="col-span-5 pr-4">
                                 <p className="font-bold text-gray-800 line-clamp-2 text-sm leading-tight mb-1">{p.title}</p>
-                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
                                   OEM: {p.oem_code}
                                 </span>
                               </div>
@@ -631,7 +632,7 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
             <div>
               <div className="flex flex-col sm:flex-row gap-4 mb-6">
                 <form onSubmit={handleCreateCoupon} className="flex-1 flex gap-4 bg-gray-50 p-4 rounded border">
-                  <input required name="code" type="text" placeholder="Nhập mã (VD: VUIHE)" className="p-2 border rounded uppercase font-mono flex-1" />
+                  <input required name="code" type="text" placeholder="Nhập mã (VD: VUIHE)" className="p-2 border rounded uppercase flex-1" />
                   <input required name="val" type="number" placeholder="Số tiền giảm (VND)" className="p-2 border rounded flex-1" />
                   <button type="submit" className="bg-brand-dark text-white px-4 py-2 rounded font-bold hover:bg-black">Tạo Mã</button>
                 </form>
@@ -682,7 +683,7 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
                             }}
                           />
                         </td>
-                        <td className="p-3 font-mono font-bold text-lg text-brand-primary">{c.code}</td>
+                        <td className="p-3 font-bold text-lg text-brand-primary">{c.code}</td>
                         <td className="p-3 text-right font-bold">{c.discount_value.toLocaleString('vi-VN')} đ</td>
                         <td className="p-3 text-center">
                           <span className={`px-2 py-1 text-xs font-bold rounded ${c.isActive ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>
@@ -776,3 +777,5 @@ export default function AdminDashboard({ user, onBack, handleLogout, onProductsC
     </div>
   );
 }
+
+
