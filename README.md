@@ -17,4 +17,5 @@ If you are developing a production application, we recommend using TypeScript wi
 
 Cách khởi chạy WEB
 front: PS C:\Users\MINH\Downloads\WebBuyProductCar> npm run dev
+
 back: PS C:\Users\MINH\Downloads\WebBuyProductCar\mazlay-parts-api> npm run start:dev
